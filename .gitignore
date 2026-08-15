@@ -1,0 +1,26 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+*.log
+.DS_Store
+Thumbs.db
+
+# Electron
+desktop/out/
+desktop/dist/
+
+# Expo / React Native
+mobile/.expo/
+mobile/.expo-shared/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# editors
+.vscode/*
+!.vscode/extensions.json
+.idea/
