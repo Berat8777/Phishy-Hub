@@ -11,12 +11,14 @@ export const listDepartmentsValidator = [
 
 export const createDepartmentValidator = [
   body('name').isString().trim().notEmpty().withMessage('name is required'),
+  body('managerId').optional({ nullable: true }).isUUID(),
   validate,
 ];
 
 export const updateDepartmentValidator = [
   param('id').isUUID(),
-  body('name').isString().trim().notEmpty().withMessage('name is required'),
+  body('name').optional().isString().trim().notEmpty().withMessage('name is required'),
+  body('managerId').optional({ nullable: true }).isUUID(),
   validate,
 ];
 

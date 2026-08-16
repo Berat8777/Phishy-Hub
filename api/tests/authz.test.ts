@@ -198,13 +198,13 @@ describe('authorization / multi-tenant isolation', () => {
       const selfReview = await request(app)
         .post(`/api/v1/leave-requests/${leaveRequestId}/review`)
         .set('Authorization', bearer(employee.accessToken))
-        .send({ status: 'approved' });
+        .send({ decision: 'approve' });
       expect(selfReview.status).toBe(403);
 
       const hrReview = await request(app)
         .post(`/api/v1/leave-requests/${leaveRequestId}/review`)
         .set('Authorization', bearer(hr.accessToken))
-        .send({ status: 'approved' });
+        .send({ decision: 'approve' });
       expect(hrReview.status).toBe(200);
       expect(hrReview.body.data.status).toBe('approved');
 

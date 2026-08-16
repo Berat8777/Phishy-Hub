@@ -200,13 +200,13 @@ describe('CRUD edge cases / business-rule validation', () => {
       await request(app)
         .post(`/api/v1/leave-requests/${id}/review`)
         .set('Authorization', bearer(hr.accessToken))
-        .send({ status: 'approved' })
+        .send({ decision: 'approve' })
         .expect(200);
 
       const secondReview = await request(app)
         .post(`/api/v1/leave-requests/${id}/review`)
         .set('Authorization', bearer(hr.accessToken))
-        .send({ status: 'rejected' });
+        .send({ decision: 'reject' });
       expect(secondReview.status).toBe(400);
     });
 

@@ -7,7 +7,7 @@ import { useChannelsStore } from '../../../../stores/channels';
 import { useAuthStore } from '../../../../stores/auth';
 import { useUsersStore } from '../../../../stores/users';
 import { isApiError } from '../../../../api/errors';
-import UserAvatar from '../shared/UserAvatar.vue';
+import UserAvatar from '../../../../components/shared/UserAvatar.vue';
 import type { UserDTO } from '../../../../api/types';
 
 const props = defineProps<{ modelValue: boolean }>();

@@ -123,9 +123,13 @@ kodda **yok**).
 |---|---|
 | Kanal yönetimi (üye ekle/çıkar/arşivle) | `ChannelMember.channelRole=admin` OYA global `admin` |
 | Mesaj düzenle/sil | Sadece gönderen VEYA global `admin` |
-| Leave request review (approve/reject) | Sadece `hr` veya `admin` |
-| Leave request iptal | Sahibi VEYA `hr`/`admin` |
+| Leave request review, `pending` aşaması | Departmanın `managerId`'si OYA `hr`/`admin` |
+| Leave request review, `manager_approved` aşaması | Sadece `hr`/`admin` |
+| Leave request iptal | Sahibi (sadece `pending`/`manager_approved`) VEYA `hr`/`admin` (`approved` dahil her terminal-olmayan durumda) |
+| Leave balance görüntüleme | Kendisi, `hr`/`admin`, veya hedef kullanıcının departman manager'ı |
 | Ticket kapatma (`status:closed`) | Sadece `assignedToId` VEYA global `admin` |
+| Ticket silme | Oluşturan VEYA global `admin` |
+| Ticket comment düzenle/sil | Sadece yazan VEYA global `admin` |
 | Ticket görünürlüğü | **Kısıtlama yok** — herhangi bir authenticated kullanıcı tüm ticket'ları görebilir/listeleyebilir |
 | Departman/kullanıcı yönetimi (create/update) | `admin` veya `hr` |
 | Kullanıcı silme (soft-delete) | Sadece `admin` |
@@ -200,15 +204,31 @@ Aksi belirtilmedikçe hepsi `Authorization: Bearer <accessToken>` gerektirir ve
 Kullanıcı DTO'sunda `passwordHash` **hiçbir zaman** dönmez (model `defaultScope`
 ile hariç tutuluyor).
 
+**`managedDepartmentIds: string[]`** (Modül 5) — `user.id`'nin `Department.managerId`
+olduğu departmanların id listesi. Sadece `POST /auth/register`, `POST /auth/login`
+ve `GET /auth/me` yanıtlarındaki `user` nesnesinde doldurulur
+(`user.service.ts::toUserDTOWithManagement()`); `GET /users`, `GET /users/:id`
+gibi diğer user-DTO döndüren endpoint'lerde her zaman `[]` döner (liste
+başına ekstra sorgu maliyetinden kaçınmak için) — client "manager" olup
+olmadığını (bir rol değil, bir ilişki olduğu için) buradan anlar, onaylar
+görünümünü gösterip göstermeyeceğine karar verir.
+
 ### 3.4 Departments (`/departments`)
 
 | Method | Path | Auth/Rol |
 |---|---|---|
 | GET | `/departments` | herkes, offset pagination |
 | GET | `/departments/:id` | herkes |
-| POST | `/departments` | `admin`,`hr` — body `{name}` |
-| PATCH | `/departments/:id` | `admin`,`hr` — body `{name}` |
+| POST | `/departments` | `admin`,`hr` — body `{name, managerId?}` |
+| PATCH | `/departments/:id` | `admin`,`hr` — body `{name?, managerId?}` |
 | DELETE | `/departments/:id` | `admin` |
+
+**`managerId`** (Modül 5, nullable, FK → `users.id`): departman yöneticisi bir
+**ilişki**dir, bir rol değil — `USER_ROLES`'a `manager` diye bir değer
+eklenmedi, roller düz kalmaya devam ediyor (§1.4). `managerId` şu an sadece
+leave-request onay zincirinin 1. aşamasını çözmek için kullanılıyor (bkz
+§3.8). `managerId` verilirse var olan bir kullanıcıya işaret etmeli, yoksa
+`400 BAD_REQUEST`.
 
 ### 3.5 Channels (`/channels`) — düz departman modeli, DM = `type:'dm'` (2+ üye)
 
@@ -318,29 +338,114 @@ tutulmasıyla karıştırılmamalı — arama farklı bir kullanım senaryosu).
 | POST | `/files/:id/attach` | yetkiliyse | `{attachableType, attachableId}` |
 | DELETE | `/files/:id` | uploader veya admin | MinIO + DB'den siler |
 
-### 3.8 Leave Requests (`/leave-requests`)
+### 3.8 Leave Requests (`/leave-requests`) — Modül 5: iki aşamalı onay zinciri
+
+**Durum makinesi** (`LEAVE_REQUEST_STATUSES`: `pending | manager_approved |
+approved | rejected | cancelled` — `manager_approved` Modül 5'te eklendi,
+diğerleri Modül 1'den değişmedi):
+
+```
+pending          -> manager_approved | rejected   (departmanın manager'ı, VEYA hr/admin — bu aşamayı atlayabilir)
+manager_approved -> approved | rejected            (sadece hr/admin)
+```
+
+- **Oluşturmada otomatik atlama**: talep sahibinin departmanı yoksa, VEYA
+  departmanın `managerId`'si yoksa, VEYA talep sahibi departmanın manager'ının
+  ta kendisiyse → talep doğrudan `manager_approved` olarak oluşturulur
+  (aksi halde geçerli bir 1. aşama onaylayıcısı olmayan bir talep sonsuza
+  kadar `pending` kalırdı). Aksi halde `pending` olarak başlar.
+- Kim onaylayabilir, hangi aşamada: `pending` iken departmanın manager'ı OYA
+  `hr`/`admin`; `manager_approved` iken **sadece** `hr`/`admin`. Sonuçtaki
+  durum `(mevcut durum, reviewer'ın talebe ilişkisi)` çiftinden sunucu
+  tarafında türetilir — client sadece `decision` gönderir.
+- **`overlap` doğrulaması** (oluşturmada): aynı kullanıcının
+  `pending`/`manager_approved`/`approved` durumundaki başka bir talebiyle
+  tarih aralığı çakışan yeni bir talep `400 BAD_REQUEST` döner (var olan
+  `endDate >= startDate` kontrolüne ek).
 
 | Method | Path | Auth/Rol |
 |---|---|---|
 | GET | `/leave-requests` | herkes → sadece kendisininkiler; `hr`/`admin` → hepsi, `?status=&userId=` |
+| GET | `/leave-requests/balance` | herkes (kendisi) veya `hr`/`admin`/talep sahibinin departman manager'ı — `?userId=&year=`. `userId` verilmezse kendisi, `year` verilmezse içinde bulunulan yıl |
 | POST | `/leave-requests` | herkes — `{type, startDate, endDate, reason?}` (ISO 8601 tarih) |
 | GET | `/leave-requests/:id` | sahibi veya `hr`/`admin` |
-| POST | `/leave-requests/:id/review` | `hr`,`admin` — `{status:'approved'|'rejected', reviewNote?}`. Sadece `pending` iken |
-| POST | `/leave-requests/:id/cancel` | sahibi veya `hr`/`admin` — sadece `pending` iken |
+| POST | `/leave-requests/:id/review` | departmanın manager'ı (sadece `pending` iken) veya `hr`/`admin` (her iki aşamada) — **body şekli değişti**: `{decision:'approve'|'reject', reviewNote?}` (eskiden `{status:'approved'|'rejected'}` idi — **breaking change**, repo içinde başka çağıran yoktu) |
+| POST | `/leave-requests/:id/cancel` | sahibi (sadece `pending`/`manager_approved` iken) veya `hr`/`admin` (`approved` dahil, terminal-olmayan her durumda — HR onay-sonrası plan değişikliklerini yönetebilsin diye) |
 
 Review sonrası talep sahibine `leave_request_reviewed` notification'ı +
-socket `notification:new` gönderilir (doğrulandı).
+socket `notification:new` gönderilir (doğrulandı, davranış değişmedi).
+**Yeni**: `POST /leave-requests` sonrasında, çözümlenen 1. aşama
+onaylayıcısına (departman manager'ı, ya da oluşturmada otomatik atlandıysa
+tüm `hr`/`admin` kullanıcılarına) `leave_request_submitted` notification'ı
+gönderilir — `ticket.service.ts`'in `POST /:id/assign` bildirim deseniyle
+aynı (`createNotification` + `notification:new`).
 
-### 3.9 Tickets (`/tickets`)
+**Audit trail** — `leave_request_reviews` (`id, leave_request_id, reviewer_id,
+stage:'manager'|'hr', decision:'approve'|'reject', note, created_at`): her
+aşama kararının tam geçmişi, client-side onay stepper'ı bunun üzerinden
+render edilir. `LeaveRequest.reviewedById`/`reviewedAt`/`reviewNote`
+kolonları **sadece son kararın** denormalize bir işaretçisi olarak
+korunmaya devam ediyor (geriye dönük uyumluluk için) — asıl doğruluk kaynağı
+review tablosu.
+
+**Balance** (`leave_balances`: `id, user_id, year, type, entitled_days,
+carried_over_days`) — `GET /leave-requests/balance` yanıtı, `LEAVE_REQUEST_TYPES`
+her biri için bir giriş döner:
+```json
+[{ "type": "annual", "entitledDays": 20, "carriedOverDays": 0, "usedDays": 3, "pendingDays": 2, "remainingDays": 15 }, ...]
+```
+`usedDays`/`pendingDays` **her zaman türetilir**, hiç saklanmaz:
+`usedDays` = o kullanıcının o yıl+tip için `approved` taleplerinin iş günü
+toplamı; `pendingDays` = aynısı `pending`+`manager_approved` için.
+`remainingDays = entitled + carriedOver - used - pending` — **sadece**
+`annual` tipi entitlement'tan düşer (`LEAVE_TYPE_DEDUCTS_ENTITLEMENT`);
+diğer tipler (`sick`/`unpaid`/`other`) izlenir/gösterilir ama entitlement'a
+karşı düşülmez, bu yüzden onlarda `remainingDays: null` döner. İş günü sayımı
+Pzt-Cum (tatil takvimi yok, kapsam dışı); yıl sınırını aşan talepler
+(`utils/dates.ts::splitBusinessDaysByYear`) gün sayısını dokunduğu her yıla
+böler. Talebi engelleyen bir 400 **yok** — bakiyeyi aşmak sadece client-side
+bir uyarı, sunucu tarafında reddedilmiyor.
+
+**Takım takvimi** — `GET /leave-calendar?from=&to=&departmentId=` (Modül 5,
+`/leave-requests` altında değil, **ayrı, üst-seviye bir endpoint** —
+`services/leaveRequest.service.ts::getLeaveCalendar()`, tam DTO'nun
+filtrelenmiş hali değil, **yapısal olarak ayrı** bir redakte projeksiyon):
+```json
+[{ "id": "...", "userId": "...", "user": {"id":"...","firstName":"...","lastName":"...","avatarFileId":null,"departmentId":"..."}, "type": "annual", "status": "approved", "startDate": "2027-04-01", "endDate": "2027-04-02" }]
+```
+`reason` ve `reviewNote` **hiçbir zaman** dönmez. Sadece `pending`/
+`manager_approved`/`approved` durumları dahil. Aralık en fazla ~92 gün,
+aşarsa `400 BAD_REQUEST`. `departmentId` verilmezse çağıranın kendi
+departmanı; `hr`/`admin` herhangi bir `departmentId` geçebilir, diğerleri
+sadece kendi departmanlarını.
+
+### 3.9 Tickets (`/tickets`) — Modül 6
 
 | Method | Path | Auth/Rol |
 |---|---|---|
-| GET | `/tickets` | herkes — **görünürlük kısıtlaması yok**, `?status=&priority=&assignedToId=&departmentId=` |
-| POST | `/tickets` | herkes — `{title, description?, priority?, departmentId?}` |
+| GET | `/tickets` | herkes — **görünürlük kısıtlaması yok**, `?status=&priority=&assignedToId=&departmentId=&q=` |
+| POST | `/tickets` | herkes — `{title, description?, priority?, departmentId?}`. Socket'e `ticket:created` broadcast eder |
 | GET | `/tickets/:id` | herkes |
-| PATCH | `/tickets/:id` | herkes (kısıtlama yok — Modül'ün ötesinde bir UI/iş kuralı gerekiyorsa sonraki modülde eklenebilir) |
-| POST | `/tickets/:id/assign` | herkes — `{assignedToId}`. Atanan kişiye `ticket_assigned` notification gider |
-| POST | `/tickets/:id/status` | herkes, ama `status:'closed'` sadece assignee/admin |
+| PATCH | `/tickets/:id` | herkes (kısıtlama yok). Socket'e `ticket:updated` broadcast eder |
+| DELETE | `/tickets/:id` | oluşturan veya global `admin` (Modül 6'da eklendi, soft-delete). Socket'e `ticket:deleted` broadcast eder |
+| POST | `/tickets/:id/assign` | herkes — `{assignedToId}`. Atanan kişiye `ticket_assigned` notification gider. Socket'e `ticket:updated` broadcast eder |
+| POST | `/tickets/:id/status` | herkes, ama `status:'closed'` sadece assignee/admin. Socket'e `ticket:updated` broadcast eder |
+| GET | `/tickets/:id/comments` | herkes, offset pagination |
+| POST | `/tickets/:id/comments` | herkes — `{body}`. Ticket'ın oluşturanına ve mevcut assignee'sine `ticket_comment_added` notification gider (yorumu yazan hariç) |
+| PATCH | `/tickets/:id/comments/:commentId` | yazan veya global `admin` — `{body}` |
+| DELETE | `/tickets/:id/comments/:commentId` | yazan veya global `admin` |
+
+**`q` parametresi** (Modül 1'de kabul edilip hiç uygulanmıyordu — düzeltildi):
+`title`/`description` üzerinde Postgres `ILIKE '%terim%'`, `message.service.ts::searchMessages`'ın
+deseniyle aynı.
+
+**`assignedToId=none`**: "atanmamış" anlamına gelen özel bir değer
+(`WHERE assigned_to_id IS NULL`) — UUID validasyonundan önce özel olarak
+ele alınır, `none` da UUID de değilse `422 VALIDATION_ERROR`.
+
+**Ticket comments** (`ticket_comments`: `id, ticket_id, author_id, body,
+created_at, updated_at`) — düzenleme/silme yetkisi `authz.service.ts::assertCanEditTicketComment`
+ile `assertMessageEditable`'ın aynısı şekilde uygulanıyor (yazan veya admin).
 
 ### 3.10 Meetings (`/meetings`)
 
@@ -408,11 +513,23 @@ Ack formatı `sockets/ack.ts`'te merkezi: `{success:true,data}` /
 | `notification:new` | `{notification}` | `user:{id}` |
 | `reaction:added` | `{messageId, emoji, userId}` | `channel:{id}` |
 | `reaction:removed` | `{messageId, emoji, userId}` | `channel:{id}` |
+| `ticket:created` | `{ticket}` (tam ticket DTO'su) | **TÜM bağlı client'lara** (`io.emit`) |
+| `ticket:updated` | `{ticket}` (tam ticket DTO'su) | **TÜM bağlı client'lara** (`io.emit`) |
+| `ticket:deleted` | `{ticketId}` | **TÜM bağlı client'lara** (`io.emit`) |
 
 REST üzerinden mesaj oluşturma/güncelleme/silme de **aynı event'leri**
 socket'e broadcast eder (`sockets/broadcast.ts` merkezi helper'ları
 kullanılıyor) — yani bir client REST ile mesaj gönderirse, socket'e bağlı
 diğer client'lar da gerçek zamanlı görür.
+
+**Ticket event'leri** (Modül 6, `services/ticket.service.ts`'in create/update/
+assign/status/delete yollarının hepsinden emit edilir) tickets'ın herhangi
+bir kişiye-özel görünürlük kısıtlaması olmadığı için (§1.4, §9.5) `presence:update`
+ile aynı emsali izleyip **oda-bazlı değil, org-wide** (`io.emit`) broadcast
+edilir — kanal/kullanıcı odalarına değil. Socket katmanı başlatılmamışsa
+(örn. REST-only test ortamı) broadcast sessizce atlanır, kalıcı yazma asla
+başarısız olmaz (`ticket.service.ts::safeBroadcast`, `notification.service.ts`'teki
+aynı deseni izler).
 
 ### 4.4 Presence
 
@@ -535,6 +652,19 @@ Tüm demo kullanıcılar şifre: **`Password123!`**
 Seed kanalları: `#general` (public, herkes üye), `#engineering` (private,
 admin+dev1+dev2 üye). `#general`'da bir karşılama mesajı var.
 
+**Departman manager'ları (Modül 5)**: `Engineering`'in `managerId`'si
+`dev1`'e ayarlı — dev1, dev2/admin'in leave request'lerinde 1. aşama
+onaylayıcısı olur. `Sales`/`Human Resources`/`Support`'un manager'ı yok —
+o departmanlardaki kullanıcıların talepleri oluşturmada otomatik
+`manager_approved`'a atlar (bkz §3.8).
+
+**Tickets/leave requests seed verisi**: 6 ticket (4 durumun hepsi, karışık
+öncelik, bazıları atanmış bazıları değil), 5 leave request (`pending`,
+2× `manager_approved`, `approved`, `rejected`) + `approved`/`rejected`
+olanlar için tam `leave_request_reviews` audit trail'i, her kullanıcı için
+içinde bulunulan yıla ait bir `leave_balances` satırı (`annual`, 20 gün
+entitlement).
+
 ---
 
 ## 9. Mimari dosyadan sapmalar
@@ -614,3 +744,75 @@ sırasında alınan kararlardır — mimariyle çelişmiyor ama netleştirme ger
       exclusion from main timeline + replies endpoint, DM get-or-create
       returning the same channel on repeat calls). `tsc --noEmit` ve
       `npm run build` temiz.
+
+---
+
+## 11. Faz 3 — Modül 5 (leave/HR) + Modül 6 (tickets) eklentileri
+
+Bu bölüm, Modül 1 sonrası ikinci implementer geçişinde eklenen §1'deki leave
+approval chain + §2'deki ticket özellikleri için karar/doğrulama notlarıdır.
+
+### 11.1 Yeni migration'lar (17→22)
+
+`20260101001600` (enum'a `manager_approved` ekler, `ALTER TYPE ... ADD VALUE
+IF NOT EXISTS` — kendi başına bir migration, çünkü Postgres bunu aynı
+transaction'da başka şema değişiklikleriyle birlikte çalıştırmaya izin
+vermiyor; **down migration'ı dokümante edilmiş bir no-op** — Postgres enum
+değerleri asla geri alınamıyor), `20260101001700` (`departments.manager_id`),
+`20260101001800` (`leave_request_reviews`), `20260101001900`
+(`leave_balances`), `20260101002000` (`ticket_comments`).
+
+### 11.2 Alınan kararlar (mimari dokümanda netleştirilmemiş noktalar)
+
+1. **`GET /leave-calendar` bilinçli olarak `/leave-requests` altında değil**
+   — dönen şekil yapısal olarak farklı (redakte projeksiyon) olduğu için ayrı
+   bir üst-seviye route (`routes/leaveCalendar.routes.ts`) olarak mount edildi.
+2. **`reviewLeaveRequest`'te `stage` alanı, reviewer'ın literal bir departman
+   manager'ı olup olmadığını değil, "zincirde hangi adımı tamamladığını"**
+   kaydeder — `hr`/`admin` bir talebi `pending` iken onaylarsa bu da
+   `stage:'manager'` olarak loglanır (departman manager'ının yerine
+   geçtikleri için), `leave_request_reviews` tablosunun "kim hangi rolde
+   karar verdi" değil "zincirin hangi adımı" sorusuna cevap vermesi bilinçli
+   bir tasarım.
+3. **Oluşturmada otomatik `manager_approved` atlaması + submission bildirimi**:
+   atlama olduğunda "çözümlenen 1. aşama onaylayıcısı" tek bir kişi değil
+   (departman manager'ı yok) — bu durumda **tüm** `hr`/`admin` kullanıcılarına
+   ayrı ayrı `leave_request_submitted` bildirimi gönderiliyor. Departmanlı
+   normal akışta sadece o departmanın manager'ına gidiyor.
+4. **`LeaveBalance.remainingDays` sadece `annual` tipi için hesaplanıyor**
+   (`null` diğer tiplerde) — plan'daki "sadece annual entitlement'tan düşer"
+   kararının DTO'ya birebir yansıması; client `remainingDays === null` ise
+   "bu tip için limit takibi yok" olarak yorumlamalı.
+5. **Ticket silme (`DELETE /tickets/:id`) Modül 6 kapsamında eklendi** —
+   mimari planı `ticket:deleted` broadcast'ini istiyordu ama `Ticket` modeli
+   zaten `paranoid` olmasına rağmen hiçbir controller/route silme
+   sağlamıyordu; yetki `assertCanDeleteTicket` ile mesaj silme desenine
+   paralel (`assertMessageEditable`) oluşturan-veya-admin olarak seçildi.
+6. **Department `managerId` PATCH/POST ile settable yapıldı** (`{name?,
+   managerId?}`) — plan modeli/migration'ı istiyordu ama endpoint'i
+   belirtmiyordu; bir API yolu olmadan bu kolon hiç set edilemezdi (sadece
+   seeder/DB'den).
+7. **Ticket broadcast'leri `getIo()`'yu try/catch ile sarıyor**
+   (`ticket.service.ts::safeBroadcast`) — `notification.service.ts`'in zaten
+   kurduğu "socket katmanı başlatılmamışsa kalıcı yazma başarısız olmasın"
+   desenini birebir izliyor (REST-only test'ler `initSockets()` çağırmıyor).
+
+### 11.3 Doğrulama durumu (Faz 3)
+
+- [x] `cd api && npx tsc --noEmit` temiz.
+- [x] `npx vitest run` yeşil — **9 test dosyası, 78 test** (64 eski + 14
+      yeni: `tests/leaveApproval.test.ts` 9 test — auto-skip [departmansız
+      + manager'sız departman], managed department'ta pending→403(outsider)→
+      manager onayı→hr onayı mutlu yolu, manager'ın stage-1'de reddetmesi,
+      overlap 400, `GET /leave-calendar`'ın `reason`/`reviewNote` hiç
+      döndürmediği + 92-gün cap 400, balance görünürlüğü; `tests/ticketFeatures.test.ts`
+      5 test — `q` arama, `assignedToId=none` filtresi + geçersiz değer 422,
+      comment CRUD + bildirim, `ticket:created` socket broadcast'i gerçek
+      socket.io-client ile). `authz.test.ts`/`crud.test.ts`'teki eski
+      `{status:...}` review body'leri yeni `{decision:...}` sözleşmesine
+      güncellendi (kasıtlı breaking change, plan'da onaylı).
+- [x] Migration'lar gerçek Postgres'e karşı (`docker-compose` ile ayaktaki
+      `phishy_hub` dev DB) `npx sequelize-cli db:migrate` ile hatasız çalıştı.
+- [x] Seeder gerçek Postgres'e karşı `db:seed:undo:all` + `db:seed:all` ile
+      sıfırdan yeniden çalıştırıldı, hatasız tamamlandı (bkz §8 seed verisi
+      özeti).

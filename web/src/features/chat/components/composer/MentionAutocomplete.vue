@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import * as usersApi from '../../../../api/endpoints/users';
-import UserAvatar from '../shared/UserAvatar.vue';
+import UserAvatar from '../../../../components/shared/UserAvatar.vue';
 import type { UserDTO } from '../../../../api/types';
 
 /** Search-as-you-type against `GET /users?q=` (CONTRACT.md §3.3), triggered by ComposerInput on an `@` token. Keyboard nav is driven from the parent via defineExpose (ComposerInput owns the textarea's keydown handler). */

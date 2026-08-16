@@ -1,5 +1,5 @@
-import { Department } from '../models';
-import { NotFoundError } from '../utils/errors';
+import { Department, User } from '../models';
+import { BadRequestError, NotFoundError } from '../utils/errors';
 import { getDefaultOrganizationId } from './auth.service';
 import { paginate, PaginationParams } from './pagination.service';
 
@@ -13,14 +13,28 @@ export async function getDepartmentById(id: string): Promise<InstanceType<typeof
   return department;
 }
 
-export async function createDepartment(name: string): Promise<InstanceType<typeof Department>> {
-  const organizationId = await getDefaultOrganizationId();
-  return Department.create({ organizationId, name: name.trim() });
+async function assertValidManagerId(managerId: string | null | undefined): Promise<void> {
+  if (!managerId) return;
+  const manager = await User.findByPk(managerId);
+  if (!manager) throw new BadRequestError('managerId does not reference an existing user');
 }
 
-export async function updateDepartment(id: string, name: string): Promise<InstanceType<typeof Department>> {
+export async function createDepartment(input: { name: string; managerId?: string | null }): Promise<InstanceType<typeof Department>> {
+  await assertValidManagerId(input.managerId);
+  const organizationId = await getDefaultOrganizationId();
+  return Department.create({ organizationId, name: input.name.trim(), managerId: input.managerId ?? null });
+}
+
+export async function updateDepartment(
+  id: string,
+  input: { name?: string; managerId?: string | null },
+): Promise<InstanceType<typeof Department>> {
   const department = await getDepartmentById(id);
-  department.name = name.trim();
+  if (input.managerId !== undefined) {
+    await assertValidManagerId(input.managerId);
+    department.managerId = input.managerId;
+  }
+  if (input.name !== undefined) department.name = input.name.trim();
   await department.save();
   return department;
 }

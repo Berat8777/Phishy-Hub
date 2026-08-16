@@ -2,8 +2,8 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { PhAvatar } from '@phishyhub/design-system';
 import type { AvatarSize } from '@phishyhub/design-system';
-import { useUsersStore } from '../../../../stores/users';
-import { useFilesStore } from '../../../../stores/files';
+import { useUsersStore } from '../../stores/users';
+import { useFilesStore } from '../../stores/files';
 import PresenceDot from './PresenceDot.vue';
 
 const props = withDefaults(

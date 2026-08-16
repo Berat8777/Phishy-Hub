@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import * as authService from '../services/auth.service';
-import { toUserDTO, getUserById } from '../services/user.service';
+import { toUserDTOWithManagement, getUserById } from '../services/user.service';
 import { sendSuccess } from '../utils/response';
 
 function requestMeta(req: Request) {
@@ -12,13 +12,13 @@ function requestMeta(req: Request) {
 
 export async function register(req: Request, res: Response): Promise<void> {
   const user = await authService.registerUser(req.body);
-  sendSuccess(res, { user: toUserDTO(user) }, 201);
+  sendSuccess(res, { user: await toUserDTOWithManagement(user) }, 201);
 }
 
 export async function login(req: Request, res: Response): Promise<void> {
   const { email, password } = req.body;
   const { user, tokens } = await authService.login(email, password, requestMeta(req));
-  sendSuccess(res, { user: toUserDTO(user), ...tokens });
+  sendSuccess(res, { user: await toUserDTOWithManagement(user), ...tokens });
 }
 
 export async function refresh(req: Request, res: Response): Promise<void> {
@@ -33,5 +33,5 @@ export async function logout(req: Request, res: Response): Promise<void> {
 
 export async function me(req: Request, res: Response): Promise<void> {
   const user = await getUserById(req.user!.id);
-  sendSuccess(res, { user: toUserDTO(user) });
+  sendSuccess(res, { user: await toUserDTOWithManagement(user) });
 }

@@ -7,21 +7,31 @@ import DropZone from '../features/chat/components/composer/DropZone.vue';
 import { useDropZoneStore } from '../stores/dropzone';
 
 /**
- * Left icon rail — just a "Chat" entry for now. Modeled as a list so a
- * later phase can append more entries (tickets, leave requests, meetings)
- * without restructuring this component.
+ * Left icon rail. Modeled as a list so a later phase can append more
+ * entries (HR, admin) without restructuring this component — each entry
+ * just needs a `section` matching some route's `meta.section` (router/
+ * index.ts) and a route name to navigate to.
+ *
+ * Active-state uses `meta.section` (NOT exact route-name matching) so a
+ * nested route like `chat-thread` still highlights "Chat" — the previous
+ * exact-match check only ever matched the bare `chat`/`boards` route name,
+ * missing every child route under it.
  */
 interface RailItem {
   key: string;
   label: string;
   icon: IconName;
+  section: string;
   routeName: string;
 }
 
-const railItems: RailItem[] = [{ key: 'chat', label: 'Chat', icon: 'MessageSquare', routeName: 'chat' }];
+const railItems: RailItem[] = [
+  { key: 'chat', label: 'Chat', icon: 'MessageSquare', section: 'chat', routeName: 'chat' },
+  { key: 'boards', label: 'Boards', icon: 'Kanban', section: 'boards', routeName: 'boards' },
+];
 
 const router = useRouter();
-const activeRouteName = computed(() => router.currentRoute.value.name);
+const activeSection = computed(() => router.currentRoute.value.meta.section);
 const dropZoneStore = useDropZoneStore();
 
 function go(routeName: string): void {
@@ -37,7 +47,7 @@ function go(routeName: string): void {
         :key="item.key"
         type="button"
         class="app-shell__rail-item"
-        :class="{ 'app-shell__rail-item--active': activeRouteName === item.routeName }"
+        :class="{ 'app-shell__rail-item--active': activeSection === item.section }"
         :aria-label="item.label"
         @click="go(item.routeName)"
       >

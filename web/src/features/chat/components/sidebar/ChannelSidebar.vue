@@ -9,7 +9,7 @@ import ChannelSectionList from './ChannelSectionList.vue';
 import ChannelCreateDialog from './ChannelCreateDialog.vue';
 import ChannelBrowser from './ChannelBrowser.vue';
 import DmComposerDialog from './DmComposerDialog.vue';
-import UserAvatar from '../shared/UserAvatar.vue';
+import UserAvatar from '../../../../components/shared/UserAvatar.vue';
 import SearchPanel from '../shared/SearchPanel.vue';
 
 const channelsStore = useChannelsStore();

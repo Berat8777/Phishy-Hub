@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { formatTime } from '../../../../lib/date';
-import UserAvatar from '../shared/UserAvatar.vue';
+import UserAvatar from '../../../../components/shared/UserAvatar.vue';
 import UserPopover from '../shared/UserPopover.vue';
 import MessageItem from './MessageItem.vue';
 import type { ClientMessage } from '../../../../stores/messages';

@@ -1,4 +1,14 @@
-import { ChannelMember, Ticket, LeaveRequest, Message, MeetingParticipant, File, FileAttachment } from '../models';
+import {
+  ChannelMember,
+  Ticket,
+  LeaveRequest,
+  Message,
+  MeetingParticipant,
+  File,
+  FileAttachment,
+  User,
+  Department,
+} from '../models';
 import { ForbiddenError, NotFoundError } from '../utils/errors';
 import type { AttachableType, UserRole } from '../utils/constants';
 
@@ -38,13 +48,6 @@ export async function assertCanCloseTicket(ticketId: string, userId: string, rol
   }
 }
 
-/** Leave request review: hr/admin only (architecture doc §3 RBAC matrix). */
-export function assertCanReviewLeaveRequest(role: UserRole): void {
-  if (role !== 'hr' && role !== 'admin') {
-    throw new ForbiddenError('Only HR or admin can review leave requests');
-  }
-}
-
 export function assertOwnsLeaveRequestOrPrivileged(
   leaveRequest: InstanceType<typeof LeaveRequest>,
   userId: string,
@@ -52,6 +55,54 @@ export function assertOwnsLeaveRequestOrPrivileged(
 ): void {
   if (leaveRequest.userId === userId || role === 'hr' || role === 'admin') return;
   throw new ForbiddenError('You do not have access to this leave request');
+}
+
+/**
+ * True if `managerId` is the `Department.managerId` of the department
+ * `targetUserId` belongs to. A user with no department, or whose department
+ * has no manager set, has no manager — always false in that case (this is
+ * also why leaveRequest.service.ts auto-skips the manager stage for those
+ * requesters, see createLeaveRequest()).
+ */
+export async function isManagerOfUser(managerId: string, targetUserId: string): Promise<boolean> {
+  const targetUser = await User.findByPk(targetUserId);
+  if (!targetUser || !targetUser.departmentId) return false;
+  const department = await Department.findByPk(targetUser.departmentId);
+  return Boolean(department && department.managerId === managerId);
+}
+
+/** Department ids where `userId` is the manager — surfaced on the user DTO as `managedDepartmentIds` (see user.service.ts). */
+export async function getManagedDepartmentIds(userId: string): Promise<string[]> {
+  const departments = await Department.findAll({ where: { managerId: userId }, attributes: ['id'] });
+  return departments.map((d) => d.id);
+}
+
+/**
+ * Leave balance visibility (`GET /leave-requests/balance?userId=`): self,
+ * hr/admin, or the manager of the target user's department (architecture
+ * doc §1 "Balance"). Reuses the same manager-relationship check the review
+ * flow uses rather than a role check, since "manager" isn't a role.
+ */
+export async function assertCanViewLeaveBalance(callerId: string, role: UserRole, targetUserId: string): Promise<void> {
+  if (callerId === targetUserId || role === 'hr' || role === 'admin') return;
+  if (await isManagerOfUser(callerId, targetUserId)) return;
+  throw new ForbiddenError('You do not have access to this leave balance');
+}
+
+/** Ticket comment edit/delete: author or global admin only (mirrors assertMessageEditable). */
+export function assertCanEditTicketComment(authorId: string, userId: string, role: UserRole): void {
+  if (authorId === userId || role === 'admin') return;
+  throw new ForbiddenError('Only the comment author or an admin can edit/delete this comment');
+}
+
+/** Ticket deletion: creator or global admin only (mirrors assertMessageEditable's sender-or-admin shape). */
+export async function assertCanDeleteTicket(ticketId: string, userId: string, role: UserRole): Promise<void> {
+  if (role === 'admin') return;
+  const ticket = await Ticket.findByPk(ticketId);
+  if (!ticket) throw new NotFoundError('Ticket not found');
+  if (ticket.createdById !== userId) {
+    throw new ForbiddenError('Only the creator or an admin can delete this ticket');
+  }
 }
 
 /**

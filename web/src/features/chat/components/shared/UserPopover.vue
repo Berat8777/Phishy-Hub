@@ -3,8 +3,8 @@ import { computed, ref, watch } from 'vue';
 import { PhPopover } from '@phishyhub/design-system';
 import { useUsersStore } from '../../../../stores/users';
 import { usePresenceStore } from '../../../../stores/presence';
-import UserAvatar from './UserAvatar.vue';
-import PresenceDot from './PresenceDot.vue';
+import UserAvatar from '../../../../components/shared/UserAvatar.vue';
+import PresenceDot from '../../../../components/shared/PresenceDot.vue';
 
 const props = defineProps<{ userId: string }>();
 

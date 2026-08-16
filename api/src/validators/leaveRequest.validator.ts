@@ -14,17 +14,32 @@ export const listLeaveRequestsValidator = [
   validate,
 ];
 
+const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
 export const createLeaveRequestValidator = [
   body('type').isIn(LEAVE_REQUEST_TYPES),
-  body('startDate').isISO8601().withMessage('startDate must be an ISO 8601 date'),
-  body('endDate').isISO8601().withMessage('endDate must be an ISO 8601 date'),
+  body('startDate').matches(DATE_ONLY_PATTERN).withMessage('startDate must be a "YYYY-MM-DD" date'),
+  body('endDate').matches(DATE_ONLY_PATTERN).withMessage('endDate must be a "YYYY-MM-DD" date'),
   body('reason').optional({ nullable: true }).isString(),
   validate,
 ];
 
 export const reviewLeaveRequestValidator = [
   param('id').isUUID(),
-  body('status').isIn(['approved', 'rejected']),
+  body('decision').isIn(['approve', 'reject']),
   body('reviewNote').optional({ nullable: true }).isString(),
+  validate,
+];
+
+export const leaveBalanceQueryValidator = [
+  query('userId').optional().isUUID(),
+  query('year').optional().isInt({ min: 2000, max: 2100 }).withMessage('year must be a 4-digit year'),
+  validate,
+];
+
+export const leaveCalendarQueryValidator = [
+  query('from').matches(DATE_ONLY_PATTERN).withMessage('from must be a "YYYY-MM-DD" date'),
+  query('to').matches(DATE_ONLY_PATTERN).withMessage('to must be a "YYYY-MM-DD" date'),
+  query('departmentId').optional().isUUID(),
   validate,
 ];

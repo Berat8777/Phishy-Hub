@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { formatRelative } from '../../../../lib/date';
-import UserAvatar from './UserAvatar.vue';
+import UserAvatar from '../../../../components/shared/UserAvatar.vue';
 import type { MessageDTO } from '../../../../api/types';
 
 const props = defineProps<{ message: MessageDTO; channelLabel?: string }>();

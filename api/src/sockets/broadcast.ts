@@ -55,3 +55,21 @@ export function broadcastReactionRemoved(
     userId: payload.userId,
   });
 }
+
+/**
+ * Tickets have no per-user visibility restriction (any authenticated user
+ * can see any ticket, CONTRACT.md §1.4/§9.5), so these broadcast org-wide
+ * via `io.emit` — same precedent `presence:update` already established
+ * (CONTRACT.md §9.6), rather than a per-user/per-channel room.
+ */
+export function broadcastTicketCreated(io: Server, ticket: unknown): void {
+  io.emit('ticket:created', { ticket });
+}
+
+export function broadcastTicketUpdated(io: Server, ticket: unknown): void {
+  io.emit('ticket:updated', { ticket });
+}
+
+export function broadcastTicketDeleted(io: Server, ticketId: string): void {
+  io.emit('ticket:deleted', { ticketId });
+}

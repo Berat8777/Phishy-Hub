@@ -3,7 +3,7 @@
  * separate from connection.ts/emit.ts so both can import just the types
  * without pulling in socket.io-client itself.
  */
-import type { MessageDTO, NotificationDTO } from '../api/types';
+import type { MessageDTO, NotificationDTO, TicketDTO } from '../api/types';
 
 // --- Client -> Server (CONTRACT.md §4.2) ---
 
@@ -94,6 +94,24 @@ export interface ReactionRemovedEvent {
   userId: string;
 }
 
+/**
+ * Tickets have no per-user visibility restriction (CONTRACT.md §1.4/§9.5),
+ * so `ticket:created`/`ticket:updated`/`ticket:deleted` broadcast org-wide
+ * (`io.emit`, same precedent as `presence:update`) rather than to a
+ * channel/user room — every connected client receives every ticket event.
+ */
+export interface TicketCreatedEvent {
+  ticket: TicketDTO;
+}
+
+export interface TicketUpdatedEvent {
+  ticket: TicketDTO;
+}
+
+export interface TicketDeletedEvent {
+  ticketId: string;
+}
+
 export interface ServerToClientEvents {
   'message:new': (payload: MessageNewEvent) => void;
   'message:updated': (payload: MessageUpdatedEvent) => void;
@@ -104,6 +122,9 @@ export interface ServerToClientEvents {
   'notification:new': (payload: NotificationNewEvent) => void;
   'reaction:added': (payload: ReactionAddedEvent) => void;
   'reaction:removed': (payload: ReactionRemovedEvent) => void;
+  'ticket:created': (payload: TicketCreatedEvent) => void;
+  'ticket:updated': (payload: TicketUpdatedEvent) => void;
+  'ticket:deleted': (payload: TicketDeletedEvent) => void;
 }
 
 // --- Ack envelope (api/src/sockets/ack.ts — same `code` values as the REST envelope) ---

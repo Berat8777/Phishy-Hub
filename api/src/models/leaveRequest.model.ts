@@ -1,4 +1,12 @@
-import { CreationOptional, DataTypes, ForeignKey, InferAttributes, InferCreationAttributes, Model } from 'sequelize';
+import {
+  CreationOptional,
+  DataTypes,
+  ForeignKey,
+  InferAttributes,
+  InferCreationAttributes,
+  Model,
+  NonAttribute,
+} from 'sequelize';
 import { sequelize } from '../config/database';
 import { User } from './user.model';
 import { LEAVE_REQUEST_STATUSES, LEAVE_REQUEST_TYPES, LeaveRequestStatus, LeaveRequestType } from '../utils/constants';
@@ -17,6 +25,10 @@ export class LeaveRequest extends Model<InferAttributes<LeaveRequest>, InferCrea
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
   declare deletedAt: CreationOptional<Date | null>;
+
+  // Populated only when eager-loaded via `include: [{ association: 'requester' }]`.
+  declare requester?: NonAttribute<User>;
+  declare reviewer?: NonAttribute<User>;
 }
 
 LeaveRequest.init(

@@ -60,6 +60,14 @@ export interface UserDTO {
   lastSeenAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Department ids where this user is `Department.managerId` (CONTRACT.md
+   * §3.3). Only populated on `POST /auth/register`, `POST /auth/login`, and
+   * `GET /auth/me` — every other endpoint returning a UserDTO (e.g.
+   * `GET /users`, `GET /users/:id`) always sends `[]` here, so this field is
+   * only reliable read off `authStore.user`, never off `usersStore`.
+   */
+  managedDepartmentIds?: string[];
 }
 
 export interface TokenPair {
@@ -178,6 +186,99 @@ export interface FileDownloadResponse {
   url: string;
   expiresInSeconds: number;
   file: FileDTO;
+}
+
+// --- Departments (CONTRACT.md §3.4) ---
+
+export interface DepartmentDTO {
+  id: string;
+  organizationId: string;
+  name: string;
+  /** Department manager relationship, not a role — nullable (CONTRACT.md §3.4). */
+  managerId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// --- Tickets (CONTRACT.md §3.9) ---
+
+export type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
+export type TicketPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+export interface TicketPersonDTO {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+}
+
+export interface TicketDepartmentDTO {
+  id: string;
+  name: string;
+}
+
+export interface TicketDTO {
+  id: string;
+  title: string;
+  description: string | null;
+  status: TicketStatus;
+  priority: TicketPriority;
+  createdById: string;
+  assignedToId: string | null;
+  departmentId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  creator: TicketPersonDTO | null;
+  assignee: TicketPersonDTO | null;
+  department: TicketDepartmentDTO | null;
+}
+
+export interface TicketCommentAuthorDTO {
+  id: string;
+  firstName: string;
+  lastName: string;
+  avatarFileId: string | null;
+}
+
+export interface TicketCommentDTO {
+  id: string;
+  ticketId: string;
+  authorId: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+  author: TicketCommentAuthorDTO | null;
+}
+
+// --- Leave requests (CONTRACT.md §3.8) — minimal shape needed by lib/permissions.ts; the HR pass owns the full feature ---
+
+export type LeaveRequestType = 'annual' | 'sick' | 'unpaid' | 'other';
+export type LeaveRequestStatus = 'pending' | 'manager_approved' | 'approved' | 'rejected' | 'cancelled';
+
+export interface LeaveRequestPersonDTO {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  departmentId: string | null;
+  avatarFileId: string | null;
+}
+
+export interface LeaveRequestDTO {
+  id: string;
+  userId: string;
+  type: LeaveRequestType;
+  startDate: string;
+  endDate: string;
+  reason: string | null;
+  status: LeaveRequestStatus;
+  reviewedById: string | null;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+  createdAt: string;
+  updatedAt: string;
+  requester: LeaveRequestPersonDTO | null;
+  reviewer: LeaveRequestPersonDTO | null;
 }
 
 // --- Notifications (CONTRACT.md §3.11) ---

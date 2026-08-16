@@ -22,8 +22,24 @@ export type AttachableType = (typeof ATTACHABLE_TYPES)[number];
 export const LEAVE_REQUEST_TYPES = ['annual', 'sick', 'unpaid', 'other'] as const;
 export type LeaveRequestType = (typeof LEAVE_REQUEST_TYPES)[number];
 
-export const LEAVE_REQUEST_STATUSES = ['pending', 'approved', 'rejected', 'cancelled'] as const;
+// `manager_approved` is stage-2-pending: the requester's department manager
+// (or hr/admin, who may skip straight past stage 1) has signed off, and the
+// request now waits on hr/admin for the final decision. `pending` remains
+// stage 1. See leaveRequest.service.ts for the full state machine.
+export const LEAVE_REQUEST_STATUSES = ['pending', 'manager_approved', 'approved', 'rejected', 'cancelled'] as const;
 export type LeaveRequestStatus = (typeof LEAVE_REQUEST_STATUSES)[number];
+
+/** Statuses that still count toward "pending" balance usage / calendar visibility / overlap checks. */
+export const LEAVE_REQUEST_ACTIVE_STATUSES: LeaveRequestStatus[] = ['pending', 'manager_approved', 'approved'];
+
+export const LEAVE_REQUEST_REVIEW_STAGES = ['manager', 'hr'] as const;
+export type LeaveRequestReviewStage = (typeof LEAVE_REQUEST_REVIEW_STAGES)[number];
+
+export const LEAVE_REQUEST_REVIEW_DECISIONS = ['approve', 'reject'] as const;
+export type LeaveRequestReviewDecision = (typeof LEAVE_REQUEST_REVIEW_DECISIONS)[number];
+
+/** Only this leave type deducts against `LeaveBalance.entitledDays` (architect's assumption). */
+export const LEAVE_TYPE_DEDUCTS_ENTITLEMENT: LeaveRequestType = 'annual';
 
 export const TICKET_STATUSES = ['open', 'in_progress', 'resolved', 'closed'] as const;
 export type TicketStatus = (typeof TICKET_STATUSES)[number];

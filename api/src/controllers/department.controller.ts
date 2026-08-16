@@ -14,12 +14,12 @@ export async function getById(req: Request, res: Response): Promise<void> {
 }
 
 export async function create(req: Request, res: Response): Promise<void> {
-  const department = await departmentService.createDepartment(req.body.name);
+  const department = await departmentService.createDepartment(req.body);
   sendSuccess(res, department, 201);
 }
 
 export async function update(req: Request, res: Response): Promise<void> {
-  const department = await departmentService.updateDepartment((req.params.id as string), req.body.name);
+  const department = await departmentService.updateDepartment((req.params.id as string), req.body);
   sendSuccess(res, department);
 }
 

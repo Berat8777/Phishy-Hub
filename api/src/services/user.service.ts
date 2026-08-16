@@ -4,6 +4,7 @@ import { User, Department } from '../models';
 import { NotFoundError, ConflictError, BadRequestError, ForbiddenError } from '../utils/errors';
 import { env } from '../config/env';
 import { paginate, PaginationParams } from './pagination.service';
+import { getManagedDepartmentIds } from './authz.service';
 import type { UserRole, UserStatus } from '../utils/constants';
 
 export interface UserDTO {
@@ -18,9 +19,11 @@ export interface UserDTO {
   lastSeenAt: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Department ids where this user is `Department.managerId` — lets the client show an approvals view without "manager" being a role it can check (see leaveRequest.service.ts). Only populated by toUserDTOWithManagement(); plain toUserDTO() calls leave it `[]`. */
+  managedDepartmentIds: string[];
 }
 
-export function toUserDTO(user: InstanceType<typeof User>): UserDTO {
+export function toUserDTO(user: InstanceType<typeof User>, managedDepartmentIds: string[] = []): UserDTO {
   const json = user.toJSON();
   return {
     id: json.id,
@@ -34,7 +37,14 @@ export function toUserDTO(user: InstanceType<typeof User>): UserDTO {
     lastSeenAt: json.lastSeenAt ? new Date(json.lastSeenAt).toISOString() : null,
     createdAt: new Date(json.createdAt).toISOString(),
     updatedAt: new Date(json.updatedAt).toISOString(),
+    managedDepartmentIds,
   };
+}
+
+/** `toUserDTO()` + a live lookup of `managedDepartmentIds` — used only where the client needs it (GET /auth/me, login, register) to avoid an extra query per row on list endpoints. */
+export async function toUserDTOWithManagement(user: InstanceType<typeof User>): Promise<UserDTO> {
+  const managedDepartmentIds = await getManagedDepartmentIds(user.id);
+  return toUserDTO(user, managedDepartmentIds);
 }
 
 export async function getUserById(id: string): Promise<InstanceType<typeof User>> {

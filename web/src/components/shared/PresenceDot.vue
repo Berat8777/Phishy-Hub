@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { usePresenceStore } from '../../../../stores/presence';
+import { usePresenceStore } from '../../stores/presence';
 
 /** Reads the `presence` store only — never touches the socket directly (repo rule: components never call `socket.on`). */
 const props = defineProps<{ userId: string }>();

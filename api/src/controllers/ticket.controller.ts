@@ -38,3 +38,8 @@ export async function updateStatus(req: Request, res: Response): Promise<void> {
   const ticket = await ticketService.updateTicketStatus(req.user!.id, req.user!.role, (req.params.id as string), req.body.status);
   sendSuccess(res, ticket);
 }
+
+export async function remove(req: Request, res: Response): Promise<void> {
+  await ticketService.deleteTicket(req.user!.id, req.user!.role, (req.params.id as string));
+  sendSuccess(res, { deleted: true });
+}

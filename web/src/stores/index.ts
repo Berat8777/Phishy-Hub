@@ -8,6 +8,8 @@ import { useFilesStore } from './files';
 import { useNotificationsStore } from './notifications';
 import { useDraftsStore } from './drafts';
 import { useSearchStore } from './search';
+import { useTicketsStore } from '../features/boards/stores/tickets';
+import { useTicketCommentsStore } from '../features/boards/stores/ticketComments';
 
 /**
  * Resets every session-scoped Pinia store to its initial state. Called on
@@ -29,4 +31,9 @@ export function resetAllStores(): void {
   useNotificationsStore().reset();
   useDraftsStore().reset();
   useSearchStore().reset();
+  // Cross-user data-leak risk on a shared device if forgotten (tickets/
+  // comments have no per-user visibility restriction, CONTRACT.md §1.4, so a
+  // stale cache would show the PREVIOUS user's board contents until refetch).
+  useTicketsStore().reset();
+  useTicketCommentsStore().reset();
 }

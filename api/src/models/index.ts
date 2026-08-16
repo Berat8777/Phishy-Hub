@@ -10,7 +10,10 @@ import { MessageReaction } from './messageReaction.model';
 import { File } from './file.model';
 import { FileAttachment } from './fileAttachment.model';
 import { LeaveRequest } from './leaveRequest.model';
+import { LeaveRequestReview } from './leaveRequestReview.model';
+import { LeaveBalance } from './leaveBalance.model';
 import { Ticket } from './ticket.model';
+import { TicketComment } from './ticketComment.model';
 import { Meeting } from './meeting.model';
 import { MeetingParticipant } from './meetingParticipant.model';
 import { Notification } from './notification.model';
@@ -25,6 +28,10 @@ Channel.belongsTo(Organization, { foreignKey: 'organizationId', as: 'organizatio
 // --- Department <-> User ---
 Department.hasMany(User, { foreignKey: 'departmentId', as: 'users' });
 User.belongsTo(Department, { foreignKey: 'departmentId', as: 'department' });
+
+// --- Department <-> User (manager) — a relationship, not a role (see utils/constants.ts) ---
+Department.belongsTo(User, { foreignKey: 'managerId', as: 'manager' });
+User.hasMany(Department, { foreignKey: 'managerId', as: 'managedDepartments' });
 
 // --- User <-> RefreshToken ---
 User.hasMany(RefreshToken, { foreignKey: 'userId', as: 'refreshTokens' });
@@ -77,6 +84,16 @@ LeaveRequest.belongsTo(User, { foreignKey: 'userId', as: 'requester' });
 User.hasMany(LeaveRequest, { foreignKey: 'reviewedById', as: 'reviewedLeaveRequests' });
 LeaveRequest.belongsTo(User, { foreignKey: 'reviewedById', as: 'reviewer' });
 
+// --- LeaveRequest <-> LeaveRequestReview (full audit trail, source of truth for the approval stepper) ---
+LeaveRequest.hasMany(LeaveRequestReview, { foreignKey: 'leaveRequestId', as: 'reviews' });
+LeaveRequestReview.belongsTo(LeaveRequest, { foreignKey: 'leaveRequestId', as: 'leaveRequest' });
+User.hasMany(LeaveRequestReview, { foreignKey: 'reviewerId', as: 'leaveRequestReviews' });
+LeaveRequestReview.belongsTo(User, { foreignKey: 'reviewerId', as: 'reviewer' });
+
+// --- LeaveBalance <-> User ---
+User.hasMany(LeaveBalance, { foreignKey: 'userId', as: 'leaveBalances' });
+LeaveBalance.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
 // --- Ticket <-> User (creator + assignee) / Department ---
 User.hasMany(Ticket, { foreignKey: 'createdById', as: 'createdTickets' });
 Ticket.belongsTo(User, { foreignKey: 'createdById', as: 'creator' });
@@ -84,6 +101,12 @@ User.hasMany(Ticket, { foreignKey: 'assignedToId', as: 'assignedTickets' });
 Ticket.belongsTo(User, { foreignKey: 'assignedToId', as: 'assignee' });
 Department.hasMany(Ticket, { foreignKey: 'departmentId', as: 'tickets' });
 Ticket.belongsTo(Department, { foreignKey: 'departmentId', as: 'department' });
+
+// --- Ticket <-> TicketComment <-> User (author) ---
+Ticket.hasMany(TicketComment, { foreignKey: 'ticketId', as: 'comments' });
+TicketComment.belongsTo(Ticket, { foreignKey: 'ticketId', as: 'ticket' });
+User.hasMany(TicketComment, { foreignKey: 'authorId', as: 'ticketComments' });
+TicketComment.belongsTo(User, { foreignKey: 'authorId', as: 'author' });
 
 // --- Meeting <-> User (organizer) / Channel / MeetingParticipant ---
 User.hasMany(Meeting, { foreignKey: 'organizerId', as: 'organizedMeetings' });
@@ -124,7 +147,10 @@ export {
   File,
   FileAttachment,
   LeaveRequest,
+  LeaveRequestReview,
+  LeaveBalance,
   Ticket,
+  TicketComment,
   Meeting,
   MeetingParticipant,
   Notification,

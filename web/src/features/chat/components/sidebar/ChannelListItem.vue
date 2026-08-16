@@ -5,7 +5,7 @@ import { useAuthStore } from '../../../../stores/auth';
 import { useMessagesStore } from '../../../../stores/messages';
 import { mentionToken } from '../../../../lib/mentions';
 import { useChannelLabel } from '../../composables/useChannelLabel';
-import PresenceDot from '../shared/PresenceDot.vue';
+import PresenceDot from '../../../../components/shared/PresenceDot.vue';
 import type { ChannelListItemDTO } from '../../../../api/types';
 
 const props = defineProps<{ channel: ChannelListItemDTO; active: boolean }>();

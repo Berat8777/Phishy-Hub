@@ -7,8 +7,8 @@ import { useSearchStore } from '../../../stores/search';
 import { useChannelLabel } from '../composables/useChannelLabel';
 import MessageList from '../components/message-list/MessageList.vue';
 import MessageComposer from '../components/composer/MessageComposer.vue';
-import UserAvatar from '../components/shared/UserAvatar.vue';
-import PresenceDot from '../components/shared/PresenceDot.vue';
+import UserAvatar from '../../../components/shared/UserAvatar.vue';
+import PresenceDot from '../../../components/shared/PresenceDot.vue';
 
 const route = useRoute();
 const router = useRouter();

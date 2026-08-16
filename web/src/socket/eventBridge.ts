@@ -6,6 +6,7 @@ import { useTypingStore } from '../stores/typing';
 import { usePresenceStore } from '../stores/presence';
 import { useNotificationsStore } from '../stores/notifications';
 import { useAuthStore } from '../stores/auth';
+import { useTicketsStore } from '../features/boards/stores/tickets';
 
 /**
  * The one place server -> client socket events turn into Pinia store
@@ -82,6 +83,18 @@ export function initEventBridge(): void {
 
   socket.on('reaction:removed', ({ messageId, emoji, userId }) => {
     useMessagesStore().applyReactionRemoved(messageId, emoji, userId);
+  });
+
+  socket.on('ticket:created', ({ ticket }) => {
+    useTicketsStore().applyTicketUpserted(ticket);
+  });
+
+  socket.on('ticket:updated', ({ ticket }) => {
+    useTicketsStore().applyTicketUpserted(ticket);
+  });
+
+  socket.on('ticket:deleted', ({ ticketId }) => {
+    useTicketsStore().applyTicketDeleted(ticketId);
   });
 }
 

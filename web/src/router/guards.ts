@@ -27,3 +27,28 @@ export const authGuard: NavigationGuardWithThis<undefined> = (to): true | RouteL
 
   return true;
 };
+
+/**
+ * `meta.roles` allow-list check — registered after `authGuard`, so it only
+ * ever runs for a route we already know the user is authenticated for (an
+ * unauthenticated hit on a role-gated route gets redirected to /login by
+ * authGuard first, never reaching this one).
+ *
+ * Not exercised by any route this phase (`/boards` is open to all
+ * authenticated roles) but must work correctly now — the next phase's
+ * `/admin` routes will set `meta.roles: ['admin']` and depend on this.
+ * Redirects to `/chat` rather than a dedicated 403 view, matching the
+ * "keep it simple" call in the task brief.
+ */
+export const roleGuard: NavigationGuardWithThis<undefined> = (to): true | RouteLocationRaw => {
+  const roles = to.meta.roles;
+  if (!roles || roles.length === 0) return true;
+
+  const authStore = useAuthStore();
+  const role = authStore.user?.role;
+  if (!role || !roles.includes(role)) {
+    return { name: 'chat' };
+  }
+
+  return true;
+};

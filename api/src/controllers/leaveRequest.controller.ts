@@ -36,3 +36,19 @@ export async function cancel(req: Request, res: Response): Promise<void> {
   const leaveRequest = await leaveRequestService.cancelLeaveRequest(req.user!.id, req.user!.role, (req.params.id as string));
   sendSuccess(res, leaveRequest);
 }
+
+export async function getBalance(req: Request, res: Response): Promise<void> {
+  const targetUserId = (req.query.userId as string | undefined) ?? req.user!.id;
+  const year = req.query.year ? Number(req.query.year) : new Date().getUTCFullYear();
+  const balance = await leaveRequestService.getLeaveBalance(req.user!.id, req.user!.role, targetUserId, year);
+  sendSuccess(res, balance);
+}
+
+export async function getCalendar(req: Request, res: Response): Promise<void> {
+  const calendar = await leaveRequestService.getLeaveCalendar(req.user!.id, req.user!.role, {
+    from: req.query.from as string,
+    to: req.query.to as string,
+    departmentId: req.query.departmentId as string | undefined,
+  });
+  sendSuccess(res, calendar);
+}

@@ -5,12 +5,27 @@ import RegisterView from '../features/auth/views/RegisterView.vue';
 import ChatView from '../features/chat/views/ChatView.vue';
 import ChatSidebarView from '../features/chat/views/ChatSidebarView.vue';
 import ThreadView from '../features/chat/views/ThreadView.vue';
-import { authGuard } from './guards';
+import KanbanBoardView from '../features/boards/views/KanbanBoardView.vue';
+import BoardsSidebarView from '../features/boards/views/BoardsSidebarView.vue';
+import TicketDetailView from '../features/boards/views/TicketDetailView.vue';
+import { authGuard, roleGuard } from './guards';
+import type { UserRole } from '../api/types';
 
 declare module 'vue-router' {
   interface RouteMeta {
     /** Routes reachable without a session (auth guard skips the "must be logged in" check). */
     public?: boolean;
+    /**
+     * Which rail entry a route belongs to — drives AppShell's active-state
+     * highlighting (`meta.section`, not exact route-name matching, so a
+     * nested route like `chat-thread` still highlights "Chat"). Every
+     * top-level feature area sets this on its outer route; child routes
+     * inherit it automatically since vue-router merges `meta` across the
+     * whole matched chain.
+     */
+    section?: 'chat' | 'hr' | 'boards' | 'admin';
+    /** Allow-list of roles that may reach this route (roleGuard). Omit/empty = open to any authenticated user. */
+    roles?: UserRole[];
   }
 }
 
@@ -35,6 +50,7 @@ const router = createRouter({
     {
       path: '/chat/:channelId?',
       component: AppShell,
+      meta: { section: 'chat' },
       children: [
         {
           path: '',
@@ -58,6 +74,33 @@ const router = createRouter({
       ],
     },
     {
+      path: '/boards',
+      component: AppShell,
+      meta: { section: 'boards' },
+      children: [
+        {
+          path: '',
+          name: 'boards',
+          components: {
+            default: KanbanBoardView,
+            sidebar: BoardsSidebarView,
+          },
+        },
+        {
+          // The board (KanbanBoardView) stays visible in `default` while
+          // TicketDetailView renders into the `aside` slot — same pattern as
+          // /chat/:channelId/thread/:messageId above.
+          path: 'ticket/:ticketId',
+          name: 'boards-ticket',
+          components: {
+            default: KanbanBoardView,
+            sidebar: BoardsSidebarView,
+            aside: TicketDetailView,
+          },
+        },
+      ],
+    },
+    {
       path: '/',
       redirect: { name: 'chat' },
     },
@@ -65,5 +108,6 @@ const router = createRouter({
 });
 
 router.beforeEach(authGuard);
+router.beforeEach(roleGuard);
 
 export default router;

@@ -5,12 +5,17 @@ import {
   listLeaveRequestsValidator,
   createLeaveRequestValidator,
   reviewLeaveRequestValidator,
+  leaveBalanceQueryValidator,
 } from '../validators/leaveRequest.validator';
 import { authenticate } from '../middleware/authenticate';
 
 const router = Router();
 
 router.use(authenticate);
+
+// NOTE: `/balance` must be registered before the `/:id` param route, or
+// Express would try to match "balance" as a leave request id.
+router.get('/balance', leaveBalanceQueryValidator, leaveRequestController.getBalance);
 
 router.get('/', listLeaveRequestsValidator, leaveRequestController.list);
 router.post('/', createLeaveRequestValidator, leaveRequestController.create);
