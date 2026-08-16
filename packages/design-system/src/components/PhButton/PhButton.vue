@@ -54,7 +54,8 @@ const isDisabled = computed(() => props.disabled || props.loading);
   transition:
     background-color var(--ph-duration-fast) var(--ph-easing-standard),
     border-color var(--ph-duration-fast) var(--ph-easing-standard),
-    color var(--ph-duration-fast) var(--ph-easing-standard);
+    color var(--ph-duration-fast) var(--ph-easing-standard),
+    box-shadow var(--ph-duration-fast) var(--ph-easing-standard);
   white-space: nowrap;
 }
 
@@ -95,6 +96,7 @@ const isDisabled = computed(() => props.disabled || props.loading);
 
 .ph-button--primary:not(:disabled):hover {
   background-color: var(--ph-color-accent-hover);
+  box-shadow: var(--ph-shadow-md);
 }
 
 .ph-button--primary:not(:disabled):active {
@@ -109,6 +111,7 @@ const isDisabled = computed(() => props.disabled || props.loading);
 
 .ph-button--secondary:not(:disabled):hover {
   background-color: var(--ph-color-surface-hover);
+  box-shadow: var(--ph-shadow-sm);
 }
 
 .ph-button--secondary:not(:disabled):active {
@@ -135,6 +138,7 @@ const isDisabled = computed(() => props.disabled || props.loading);
 
 .ph-button--danger:not(:disabled):hover {
   background-color: var(--ph-color-danger-hover);
+  box-shadow: var(--ph-shadow-md);
 }
 
 .ph-button--danger:not(:disabled):active {

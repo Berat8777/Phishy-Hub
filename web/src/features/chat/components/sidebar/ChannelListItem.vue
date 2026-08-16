@@ -73,7 +73,7 @@ const hasUnreadMention = computed(() => {
 
     <span class="channel-list-item__badges">
       <PhBadge v-if="hasUnreadMention" variant="danger">@</PhBadge>
-      <PhBadge v-if="channel.unreadCount > 0" variant="accent">{{ channel.unreadCount > 99 ? '99+' : channel.unreadCount }}</PhBadge>
+      <PhBadge v-if="channel.unreadCount > 0" variant="cta">{{ channel.unreadCount > 99 ? '99+' : channel.unreadCount }}</PhBadge>
     </span>
   </button>
 </template>
@@ -87,6 +87,7 @@ const hasUnreadMention = computed(() => {
   padding: var(--ph-space-2);
   border-radius: var(--ph-radius-md);
   text-align: left;
+  transition: background-color var(--ph-duration-fast) var(--ph-easing-standard);
 }
 
 .channel-list-item:hover {

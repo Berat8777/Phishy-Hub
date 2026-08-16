@@ -52,10 +52,28 @@ const senderName = computed(() => {
 </template>
 
 <style scoped>
+/*
+ * Fade+rise on mount only — MessageList.vue keys each group by its first
+ * message's id, which stays stable across re-renders (Vue patches in
+ * place, no remount) and only changes when a genuinely new group enters
+ * the list, so this animation naturally can't replay on scroll/re-render.
+ */
 .message-group {
   display: flex;
   gap: var(--ph-space-3);
   padding: var(--ph-space-2) var(--ph-space-4) 0;
+  animation: ph-message-group-in var(--ph-duration-base) var(--ph-ease-out);
+}
+
+@keyframes ph-message-group-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .message-group__gutter {

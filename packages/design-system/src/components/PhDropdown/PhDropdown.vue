@@ -128,17 +128,19 @@ useClickOutside([rootRef, contentRef], () => {
       <slot name="trigger" :open="modelValue" :toggle="toggle" />
     </div>
     <Teleport to="body">
-      <div
-        v-if="modelValue"
-        ref="contentRef"
-        class="ph-dropdown__content"
-        role="menu"
-        :style="{ top: `${position.top}px`, left: `${position.left}px` }"
-        :class="`ph-dropdown__content--${align}`"
-        @keydown="onContentKeydown"
-      >
-        <slot :close="close" />
-      </div>
+      <Transition name="ph-dropdown-content">
+        <div
+          v-if="modelValue"
+          ref="contentRef"
+          class="ph-dropdown__content"
+          role="menu"
+          :style="{ top: `${position.top}px`, left: `${position.left}px` }"
+          :class="`ph-dropdown__content--${align}`"
+          @keydown="onContentKeydown"
+        >
+          <slot :close="close" />
+        </div>
+      </Transition>
     </Teleport>
   </div>
 </template>
@@ -158,13 +160,38 @@ useClickOutside([rootRef, contentRef], () => {
   min-width: 180px;
   margin-top: var(--ph-space-1);
   padding: var(--ph-space-1);
-  background-color: var(--ph-color-surface-overlay);
-  border: 1px solid var(--ph-color-border-subtle);
+  background-color: var(--ph-color-glass-surface);
+  backdrop-filter: var(--ph-glass-blur);
+  -webkit-backdrop-filter: var(--ph-glass-blur);
+  border: 1px solid var(--ph-color-glass-border);
   border-radius: var(--ph-radius-md);
   box-shadow: var(--ph-shadow-md);
 }
 
 .ph-dropdown__content--end {
   transform: translateX(-100%);
+}
+
+.ph-dropdown-content-enter-active {
+  transition:
+    opacity var(--ph-duration-fast) var(--ph-ease-out),
+    transform var(--ph-duration-fast) var(--ph-ease-out);
+}
+
+.ph-dropdown-content-leave-active {
+  transition:
+    opacity var(--ph-duration-fast) var(--ph-ease-in),
+    transform var(--ph-duration-fast) var(--ph-ease-in);
+}
+
+.ph-dropdown-content-enter-from,
+.ph-dropdown-content-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.ph-dropdown__content--end.ph-dropdown-content-enter-from,
+.ph-dropdown__content--end.ph-dropdown-content-leave-to {
+  transform: translate(-100%, -4px);
 }
 </style>

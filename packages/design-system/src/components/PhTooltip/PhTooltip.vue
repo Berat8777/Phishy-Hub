@@ -67,16 +67,18 @@ function hide(): void {
   >
     <slot />
     <Teleport to="body">
-      <div
-        v-if="visible"
-        :id="tooltipId"
-        class="ph-tooltip"
-        :class="`ph-tooltip--${placement}`"
-        role="tooltip"
-        :style="{ top: `${position.top}px`, left: `${position.left}px` }"
-      >
-        {{ text }}
-      </div>
+      <Transition name="ph-tooltip-fade">
+        <div
+          v-if="visible"
+          :id="tooltipId"
+          class="ph-tooltip"
+          :class="`ph-tooltip--${placement}`"
+          role="tooltip"
+          :style="{ top: `${position.top}px`, left: `${position.left}px` }"
+        >
+          {{ text }}
+        </div>
+      </Transition>
     </Teleport>
   </span>
 </template>
@@ -91,7 +93,10 @@ function hide(): void {
   z-index: 1200;
   max-width: 240px;
   padding: var(--ph-space-1) var(--ph-space-2);
-  background-color: var(--ph-color-surface-inverse);
+  background-color: var(--ph-color-glass-surface-inverse);
+  backdrop-filter: var(--ph-glass-blur);
+  -webkit-backdrop-filter: var(--ph-glass-blur);
+  border: 1px solid var(--ph-color-glass-border);
   color: var(--ph-color-text-inverse);
   font-size: var(--ph-font-size-xs);
   border-radius: var(--ph-radius-sm);
@@ -113,5 +118,18 @@ function hide(): void {
 
 .ph-tooltip--right {
   transform: translate(0, -50%);
+}
+
+.ph-tooltip-fade-enter-active {
+  transition: opacity var(--ph-duration-fast) var(--ph-ease-out);
+}
+
+.ph-tooltip-fade-leave-active {
+  transition: opacity var(--ph-duration-fast) var(--ph-ease-in);
+}
+
+.ph-tooltip-fade-enter-from,
+.ph-tooltip-fade-leave-to {
+  opacity: 0;
 }
 </style>

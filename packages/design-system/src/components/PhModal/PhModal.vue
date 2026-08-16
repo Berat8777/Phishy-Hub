@@ -118,9 +118,15 @@ useFocusTrap(dialogRef);
   flex-direction: column;
   max-height: calc(100vh - var(--ph-space-8));
   width: 100%;
-  background-color: var(--ph-color-surface-overlay);
+  background-color: var(--ph-color-glass-surface);
+  backdrop-filter: var(--ph-glass-blur);
+  -webkit-backdrop-filter: var(--ph-glass-blur);
+  border: 1px solid var(--ph-color-glass-border);
   border-radius: var(--ph-radius-lg);
-  box-shadow: var(--ph-shadow-lg);
+  /* Layered shadow for a sense of z-depth, on top of the usual elevation shadow. */
+  box-shadow:
+    var(--ph-shadow-lg),
+    0 1px 0 0 var(--ph-color-glass-border) inset;
 }
 
 .ph-modal:focus-visible {
@@ -187,14 +193,20 @@ useFocusTrap(dialogRef);
   border-top: 1px solid var(--ph-color-border-subtle);
 }
 
-.ph-modal-enter-active,
-.ph-modal-leave-active {
-  transition: opacity var(--ph-duration-base) var(--ph-easing-standard);
+.ph-modal-enter-active {
+  transition: opacity var(--ph-duration-base) var(--ph-ease-out);
 }
 
-.ph-modal-enter-active .ph-modal,
+.ph-modal-leave-active {
+  transition: opacity var(--ph-duration-fast) var(--ph-ease-in);
+}
+
+.ph-modal-enter-active .ph-modal {
+  transition: transform var(--ph-duration-base) var(--ph-ease-out);
+}
+
 .ph-modal-leave-active .ph-modal {
-  transition: transform var(--ph-duration-base) var(--ph-easing-standard);
+  transition: transform var(--ph-duration-fast) var(--ph-ease-in);
 }
 
 .ph-modal-enter-from,

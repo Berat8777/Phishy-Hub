@@ -86,17 +86,19 @@ useClickOutside([rootRef, contentRef], () => {
       <slot name="trigger" :open="modelValue" :toggle="toggle" />
     </div>
     <Teleport to="body">
-      <div
-        v-if="modelValue"
-        ref="contentRef"
-        class="ph-popover__content"
-        :class="`ph-popover__content--${align}`"
-        role="dialog"
-        :style="{ top: `${position.top}px`, left: `${position.left}px` }"
-        @keydown="onKeydown"
-      >
-        <slot :close="close" />
-      </div>
+      <Transition name="ph-popover-content">
+        <div
+          v-if="modelValue"
+          ref="contentRef"
+          class="ph-popover__content"
+          :class="`ph-popover__content--${align}`"
+          role="dialog"
+          :style="{ top: `${position.top}px`, left: `${position.left}px` }"
+          @keydown="onKeydown"
+        >
+          <slot :close="close" />
+        </div>
+      </Transition>
     </Teleport>
   </div>
 </template>
@@ -116,13 +118,38 @@ useClickOutside([rootRef, contentRef], () => {
   margin-top: var(--ph-space-2);
   padding: var(--ph-space-4);
   min-width: 240px;
-  background-color: var(--ph-color-surface-overlay);
-  border: 1px solid var(--ph-color-border-subtle);
+  background-color: var(--ph-color-glass-surface);
+  backdrop-filter: var(--ph-glass-blur);
+  -webkit-backdrop-filter: var(--ph-glass-blur);
+  border: 1px solid var(--ph-color-glass-border);
   border-radius: var(--ph-radius-lg);
   box-shadow: var(--ph-shadow-md);
 }
 
 .ph-popover__content--end {
   transform: translateX(-100%);
+}
+
+.ph-popover-content-enter-active {
+  transition:
+    opacity var(--ph-duration-fast) var(--ph-ease-out),
+    transform var(--ph-duration-fast) var(--ph-ease-out);
+}
+
+.ph-popover-content-leave-active {
+  transition:
+    opacity var(--ph-duration-fast) var(--ph-ease-in),
+    transform var(--ph-duration-fast) var(--ph-ease-in);
+}
+
+.ph-popover-content-enter-from,
+.ph-popover-content-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.ph-popover__content--end.ph-popover-content-enter-from,
+.ph-popover__content--end.ph-popover-content-leave-to {
+  transform: translate(-100%, -4px);
 }
 </style>

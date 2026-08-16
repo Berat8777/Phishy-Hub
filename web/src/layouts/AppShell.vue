@@ -121,6 +121,9 @@ function go(routeName: string): void {
   height: 40px;
   border-radius: var(--ph-radius-md);
   color: var(--ph-color-text-muted);
+  transition:
+    background-color var(--ph-duration-fast) var(--ph-easing-standard),
+    color var(--ph-duration-fast) var(--ph-easing-standard);
 }
 
 .app-shell__rail-item:hover {

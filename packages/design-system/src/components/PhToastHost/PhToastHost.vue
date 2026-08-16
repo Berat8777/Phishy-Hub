@@ -67,18 +67,35 @@ const { toasts, dismiss } = useToast();
   flex-direction: column-reverse;
 }
 
-.ph-toast-host-move,
-.ph-toast-host-enter-active,
-.ph-toast-host-leave-active {
-  transition:
-    transform var(--ph-duration-base) var(--ph-easing-standard),
-    opacity var(--ph-duration-base) var(--ph-easing-standard);
+.ph-toast-host-move {
+  transition: transform var(--ph-duration-base) var(--ph-easing-standard);
 }
 
+.ph-toast-host-enter-active {
+  transition:
+    transform var(--ph-duration-base) var(--ph-ease-out),
+    opacity var(--ph-duration-base) var(--ph-ease-out);
+}
+
+.ph-toast-host-leave-active {
+  transition:
+    transform var(--ph-duration-fast) var(--ph-ease-in),
+    opacity var(--ph-duration-fast) var(--ph-ease-in);
+}
+
+/* Slide in from the edge the host is anchored to — left-anchored hosts
+   slide from the left, right-anchored (and the default) from the right. */
 .ph-toast-host-enter-from,
 .ph-toast-host-leave-to {
   opacity: 0;
-  transform: translateY(8px);
+  transform: translateX(16px);
+}
+
+.ph-toast-host--top-left .ph-toast-host-enter-from,
+.ph-toast-host--top-left .ph-toast-host-leave-to,
+.ph-toast-host--bottom-left .ph-toast-host-enter-from,
+.ph-toast-host--bottom-left .ph-toast-host-leave-to {
+  transform: translateX(-16px);
 }
 
 .ph-toast-host-leave-active {

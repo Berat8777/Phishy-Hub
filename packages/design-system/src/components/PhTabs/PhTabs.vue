@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useId } from '../../composables/useId';
 
 export interface TabItem {
@@ -17,6 +18,62 @@ const emit = defineEmits<{
 }>();
 
 const groupId = useId('tabs');
+
+const listRef = ref<HTMLElement | null>(null);
+const tabRefs = new Map<string, HTMLElement>();
+// A 1px-wide base, stretched via `scaleX` — keeps the sliding indicator
+// animation to transform-only (never width/left), per the no-layout-jank
+// motion rule.
+const indicatorStyle = ref<{ transform: string; opacity: number }>({ transform: 'translateX(0) scaleX(0)', opacity: 0 });
+
+function setTabRef(id: string, el: Element | null): void {
+  if (el instanceof HTMLElement) {
+    tabRefs.set(id, el);
+  } else {
+    tabRefs.delete(id);
+  }
+}
+
+function updateIndicator(): void {
+  const list = listRef.value;
+  const activeEl = tabRefs.get(props.modelValue);
+  if (!list || !activeEl) {
+    indicatorStyle.value = { ...indicatorStyle.value, opacity: 0 };
+    return;
+  }
+  const listRect = list.getBoundingClientRect();
+  const tabRect = activeEl.getBoundingClientRect();
+  const offset = tabRect.left - listRect.left + list.scrollLeft;
+  indicatorStyle.value = {
+    transform: `translateX(${offset}px) scaleX(${tabRect.width})`,
+    opacity: 1,
+  };
+}
+
+watch(
+  () => props.modelValue,
+  () => nextTick(updateIndicator),
+);
+
+watch(
+  () => props.tabs,
+  () => nextTick(updateIndicator),
+  { deep: true },
+);
+
+function onWindowResize(): void {
+  updateIndicator();
+}
+
+onMounted(async () => {
+  await nextTick();
+  updateIndicator();
+  window.addEventListener('resize', onWindowResize);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', onWindowResize);
+});
 
 function tabId(id: string): string {
   return `${groupId}-tab-${id}`;
@@ -73,11 +130,12 @@ function onKeydown(event: KeyboardEvent, currentIndex: number): void {
 
 <template>
   <div class="ph-tabs">
-    <div class="ph-tabs__list" role="tablist">
+    <div ref="listRef" class="ph-tabs__list" role="tablist">
       <button
         v-for="(tab, index) in tabs"
         :id="tabId(tab.id)"
         :key="tab.id"
+        :ref="(el) => setTabRef(tab.id, el as Element | null)"
         type="button"
         role="tab"
         class="ph-tabs__tab"
@@ -91,6 +149,7 @@ function onKeydown(event: KeyboardEvent, currentIndex: number): void {
       >
         {{ tab.label }}
       </button>
+      <span class="ph-tabs__indicator" aria-hidden="true" :style="{ transform: indicatorStyle.transform, opacity: indicatorStyle.opacity }" />
     </div>
     <div
       v-for="tab in tabs"
@@ -108,6 +167,7 @@ function onKeydown(event: KeyboardEvent, currentIndex: number): void {
 
 <style scoped>
 .ph-tabs__list {
+  position: relative;
   display: flex;
   gap: var(--ph-space-1);
   border-bottom: 1px solid var(--ph-color-border-subtle);
@@ -120,9 +180,7 @@ function onKeydown(event: KeyboardEvent, currentIndex: number): void {
   color: var(--ph-color-text-muted);
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
-  transition:
-    color var(--ph-duration-fast) var(--ph-easing-standard),
-    border-color var(--ph-duration-fast) var(--ph-easing-standard);
+  transition: color var(--ph-duration-fast) var(--ph-easing-standard);
 }
 
 .ph-tabs__tab:hover:not(:disabled) {
@@ -142,7 +200,23 @@ function onKeydown(event: KeyboardEvent, currentIndex: number): void {
 
 .ph-tabs__tab--active {
   color: var(--ph-color-accent);
-  border-bottom-color: var(--ph-color-accent);
+}
+
+/*
+ * Sliding active-tab indicator. Positioned at the bottom of `.ph-tabs__list`
+ * (replacing the old per-tab `border-bottom-color` snap) and animated via
+ * `transform: translateX(...) scaleX(...)` only — a 1px-wide base stretched
+ * with `scaleX` avoids animating `width`/`left`, which would thrash layout.
+ */
+.ph-tabs__indicator {
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: 1px;
+  height: 2px;
+  background-color: var(--ph-color-accent);
+  transform-origin: left center;
+  transition: transform var(--ph-duration-base) var(--ph-easing-standard), opacity var(--ph-duration-fast) var(--ph-easing-standard);
 }
 
 .ph-tabs__panel {

@@ -23,25 +23,49 @@
   --ph-color-surface-inverse: var(--ph-palette-slate-900);
   --ph-color-overlay-scrim: rgb(15 23 42 / 0.45);
 
+  /* Glass — overlay surfaces only (modals/dropdowns/popovers/tooltips and a
+     handful of app-level panels). Never used on primary content surfaces
+     (message list, sidebar, tables) — those stay solid/opaque above. */
+  --ph-color-glass-surface: rgb(255 255 255 / 0.8);
+  --ph-color-glass-surface-inverse: rgb(15 23 42 / 0.92);
+  --ph-color-glass-border: rgb(255 255 255 / 0.4);
+  --ph-glass-blur: blur(12px);
+
   /* Text */
-  --ph-color-text-default: var(--ph-palette-slate-900);
+  --ph-color-text-default: var(--ph-palette-slate-800);
   --ph-color-text-muted: var(--ph-palette-slate-500);
   --ph-color-text-subtle: var(--ph-palette-slate-400);
   --ph-color-text-inverse: #ffffff;
   --ph-color-text-on-accent: #ffffff;
   --ph-color-text-disabled: var(--ph-palette-slate-300);
 
-  /* Accent */
-  --ph-color-accent: var(--ph-palette-indigo-600);
-  --ph-color-accent-hover: var(--ph-palette-indigo-700);
-  --ph-color-accent-active: var(--ph-palette-indigo-800);
-  --ph-color-accent-subtle: var(--ph-palette-indigo-50);
-  --ph-color-accent-subtle-text: var(--ph-palette-indigo-700);
+  /*
+   * Accent (primary blue). Deliberately anchored one ramp step darker
+   * (blue-600, not the literal brand blue-500/#3B82F6) — white-on-blue-500
+   * text only reaches ~3.7:1 contrast, short of WCAG AA's 4.5:1 for normal
+   * text, which every filled PhButton relies on. blue-500 itself still
+   * shows up as `--ph-color-accent-secondary` and directly on borders/focus
+   * rings, where the lower 3:1 non-text threshold applies.
+   */
+  --ph-color-accent: var(--ph-palette-blue-600);
+  --ph-color-accent-hover: var(--ph-palette-blue-700);
+  --ph-color-accent-active: var(--ph-palette-blue-800);
+  --ph-color-accent-subtle: var(--ph-palette-blue-50);
+  --ph-color-accent-subtle-text: var(--ph-palette-blue-700);
+  --ph-color-accent-secondary: var(--ph-palette-blue-400);
+
+  /* CTA (accent-2, orange) — sparingly: primary calls-to-action, active
+     highlights, unread badges. Not a general-purpose accent replacement. */
+  --ph-color-cta: var(--ph-palette-orange-500);
+  --ph-color-cta-hover: var(--ph-palette-orange-600);
+  --ph-color-cta-active: var(--ph-palette-orange-700);
+  --ph-color-cta-subtle: var(--ph-palette-orange-50);
+  --ph-color-cta-subtle-text: var(--ph-palette-orange-700);
 
   /* Borders */
   --ph-color-border-subtle: var(--ph-palette-slate-200);
   --ph-color-border-strong: var(--ph-palette-slate-300);
-  --ph-color-border-focus: var(--ph-palette-indigo-500);
+  --ph-color-border-focus: var(--ph-palette-blue-500);
 
   /* Status: danger */
   --ph-color-danger: var(--ph-palette-red-500);
@@ -65,7 +89,7 @@
   --ph-color-warning-subtle-text: var(--ph-palette-amber-700);
 
   /* Focus ring */
-  --ph-focus-ring: 0 0 0 3px var(--ph-palette-indigo-200);
+  --ph-focus-ring: 0 0 0 3px var(--ph-palette-blue-200);
 }
 
 :root[data-theme='dark'] {
@@ -78,6 +102,11 @@
   --ph-color-surface-inverse: var(--ph-palette-slate-50);
   --ph-color-overlay-scrim: rgb(0 0 0 / 0.6);
 
+  --ph-color-glass-surface: rgb(15 23 42 / 0.72);
+  --ph-color-glass-surface-inverse: rgb(248 250 252 / 0.92);
+  --ph-color-glass-border: rgb(255 255 255 / 0.08);
+  --ph-glass-blur: blur(12px);
+
   --ph-color-text-default: var(--ph-palette-slate-50);
   --ph-color-text-muted: var(--ph-palette-slate-400);
   --ph-color-text-subtle: var(--ph-palette-slate-500);
@@ -85,15 +114,26 @@
   --ph-color-text-on-accent: #ffffff;
   --ph-color-text-disabled: var(--ph-palette-slate-600);
 
-  --ph-color-accent: var(--ph-palette-indigo-500);
-  --ph-color-accent-hover: var(--ph-palette-indigo-400);
-  --ph-color-accent-active: var(--ph-palette-indigo-300);
-  --ph-color-accent-subtle: var(--ph-palette-indigo-900);
-  --ph-color-accent-subtle-text: var(--ph-palette-indigo-200);
+  /* Dark theme keeps the same blue-600 base as light (still ~5.2:1 white-
+     text contrast, and clears the 3:1 non-text threshold against the dark
+     canvas/surfaces) — hover/active step lighter instead of darker, since
+     brightening reads as "more emphasis" against a dark background. */
+  --ph-color-accent: var(--ph-palette-blue-600);
+  --ph-color-accent-hover: var(--ph-palette-blue-500);
+  --ph-color-accent-active: var(--ph-palette-blue-400);
+  --ph-color-accent-subtle: var(--ph-palette-blue-900);
+  --ph-color-accent-subtle-text: var(--ph-palette-blue-200);
+  --ph-color-accent-secondary: var(--ph-palette-blue-300);
+
+  --ph-color-cta: var(--ph-palette-orange-400);
+  --ph-color-cta-hover: var(--ph-palette-orange-300);
+  --ph-color-cta-active: var(--ph-palette-orange-200);
+  --ph-color-cta-subtle: rgb(124 45 18 / 0.35);
+  --ph-color-cta-subtle-text: var(--ph-palette-orange-200);
 
   --ph-color-border-subtle: var(--ph-palette-slate-700);
   --ph-color-border-strong: var(--ph-palette-slate-600);
-  --ph-color-border-focus: var(--ph-palette-indigo-400);
+  --ph-color-border-focus: var(--ph-palette-blue-400);
 
   --ph-color-danger: var(--ph-palette-red-500);
   --ph-color-danger-hover: var(--ph-palette-red-600);
@@ -113,7 +153,7 @@
   --ph-color-warning-subtle: rgb(120 53 15 / 0.35);
   --ph-color-warning-subtle-text: var(--ph-palette-amber-100);
 
-  --ph-focus-ring: 0 0 0 3px var(--ph-palette-indigo-800);
+  --ph-focus-ring: 0 0 0 3px var(--ph-palette-blue-800);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -127,6 +167,11 @@
     --ph-color-surface-inverse: var(--ph-palette-slate-50);
     --ph-color-overlay-scrim: rgb(0 0 0 / 0.6);
 
+    --ph-color-glass-surface: rgb(15 23 42 / 0.72);
+    --ph-color-glass-surface-inverse: rgb(248 250 252 / 0.92);
+    --ph-color-glass-border: rgb(255 255 255 / 0.08);
+    --ph-glass-blur: blur(12px);
+
     --ph-color-text-default: var(--ph-palette-slate-50);
     --ph-color-text-muted: var(--ph-palette-slate-400);
     --ph-color-text-subtle: var(--ph-palette-slate-500);
@@ -134,15 +179,22 @@
     --ph-color-text-on-accent: #ffffff;
     --ph-color-text-disabled: var(--ph-palette-slate-600);
 
-    --ph-color-accent: var(--ph-palette-indigo-500);
-    --ph-color-accent-hover: var(--ph-palette-indigo-400);
-    --ph-color-accent-active: var(--ph-palette-indigo-300);
-    --ph-color-accent-subtle: var(--ph-palette-indigo-900);
-    --ph-color-accent-subtle-text: var(--ph-palette-indigo-200);
+    --ph-color-accent: var(--ph-palette-blue-600);
+    --ph-color-accent-hover: var(--ph-palette-blue-500);
+    --ph-color-accent-active: var(--ph-palette-blue-400);
+    --ph-color-accent-subtle: var(--ph-palette-blue-900);
+    --ph-color-accent-subtle-text: var(--ph-palette-blue-200);
+    --ph-color-accent-secondary: var(--ph-palette-blue-300);
+
+    --ph-color-cta: var(--ph-palette-orange-400);
+    --ph-color-cta-hover: var(--ph-palette-orange-300);
+    --ph-color-cta-active: var(--ph-palette-orange-200);
+    --ph-color-cta-subtle: rgb(124 45 18 / 0.35);
+    --ph-color-cta-subtle-text: var(--ph-palette-orange-200);
 
     --ph-color-border-subtle: var(--ph-palette-slate-700);
     --ph-color-border-strong: var(--ph-palette-slate-600);
-    --ph-color-border-focus: var(--ph-palette-indigo-400);
+    --ph-color-border-focus: var(--ph-palette-blue-400);
 
     --ph-color-danger: var(--ph-palette-red-500);
     --ph-color-danger-hover: var(--ph-palette-red-600);
@@ -162,6 +214,6 @@
     --ph-color-warning-subtle: rgb(120 53 15 / 0.35);
     --ph-color-warning-subtle-text: var(--ph-palette-amber-100);
 
-    --ph-focus-ring: 0 0 0 3px var(--ph-palette-indigo-800);
+    --ph-focus-ring: 0 0 0 3px var(--ph-palette-blue-800);
   }
 }

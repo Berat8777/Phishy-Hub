@@ -57,3 +57,25 @@ ol[role='list'] {
 a {
   color: inherit;
 }
+
+/*
+ * Global motion-safety net. Individual components define their own
+ * transition/animation durations via the --ph-duration and --ph-ease
+ * tokens — this collapses all of them down to (near-)instant for anyone
+ * who has asked the OS for reduced motion, so no component needs to
+ * special-case it itself. PhSkeleton's loading shimmer is exempt in
+ * spirit (loading indicators are the one allowed exception) but is left
+ * to the component to opt back in if desired; this rule intentionally
+ * still flattens it too, since a shimmer is easy to substitute visually
+ * with a static skeleton for reduced-motion users.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

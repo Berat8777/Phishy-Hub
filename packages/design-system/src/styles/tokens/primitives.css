@@ -19,17 +19,29 @@
   --ph-palette-slate-800: #1e293b;
   --ph-palette-slate-900: #0f172a;
 
-  /* Indigo (accent) ramp */
-  --ph-palette-indigo-50: #eef2ff;
-  --ph-palette-indigo-100: #e0e7ff;
-  --ph-palette-indigo-200: #c7d2fe;
-  --ph-palette-indigo-300: #a5b4fc;
-  --ph-palette-indigo-400: #818cf8;
-  --ph-palette-indigo-500: #6366f1;
-  --ph-palette-indigo-600: #4f46e5;
-  --ph-palette-indigo-700: #4338ca;
-  --ph-palette-indigo-800: #3730a3;
-  --ph-palette-indigo-900: #312e81;
+  /* Blue (primary/accent) ramp */
+  --ph-palette-blue-50: #eff6ff;
+  --ph-palette-blue-100: #dbeafe;
+  --ph-palette-blue-200: #bfdbfe;
+  --ph-palette-blue-300: #93c5fd;
+  --ph-palette-blue-400: #60a5fa;
+  --ph-palette-blue-500: #3b82f6;
+  --ph-palette-blue-600: #2563eb;
+  --ph-palette-blue-700: #1d4ed8;
+  --ph-palette-blue-800: #1e40af;
+  --ph-palette-blue-900: #1e3a8a;
+
+  /* Orange (CTA/accent-2) ramp — used sparingly per semantic layer */
+  --ph-palette-orange-50: #fff7ed;
+  --ph-palette-orange-100: #ffedd5;
+  --ph-palette-orange-200: #fed7aa;
+  --ph-palette-orange-300: #fdba74;
+  --ph-palette-orange-400: #fb923c;
+  --ph-palette-orange-500: #f97316;
+  --ph-palette-orange-600: #ea580c;
+  --ph-palette-orange-700: #c2410c;
+  --ph-palette-orange-800: #9a3412;
+  --ph-palette-orange-900: #7c2d12;
 
   /* Status colors */
   --ph-palette-red-50: #fef2f2;
@@ -71,8 +83,14 @@
   --ph-shadow-md: 0 4px 6px -1px rgb(15 23 42 / 0.1), 0 2px 4px -2px rgb(15 23 42 / 0.06);
   --ph-shadow-lg: 0 10px 15px -3px rgb(15 23 42 / 0.1), 0 4px 6px -4px rgb(15 23 42 / 0.05);
 
-  /* Motion */
-  --ph-duration-fast: 120ms;
-  --ph-duration-base: 200ms;
+  /* Motion — durations */
+  --ph-duration-fast: 150ms;
+  --ph-duration-base: 250ms;
+
+  /* Motion — easings. `standard` kept for backwards compatibility with
+     existing transitions; `ease-out`/`ease-in` are the semantically-named
+     curves new work should reach for (entering vs. exiting elements). */
   --ph-easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ph-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ph-ease-in: cubic-bezier(0.4, 0, 1, 1);
 }

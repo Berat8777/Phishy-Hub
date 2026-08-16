@@ -1,5 +1,5 @@
 <script setup lang="ts">
-export type BadgeVariant = 'default' | 'accent' | 'success' | 'danger' | 'warning';
+export type BadgeVariant = 'default' | 'accent' | 'cta' | 'success' | 'danger' | 'warning';
 
 withDefaults(
   defineProps<{
@@ -40,6 +40,12 @@ withDefaults(
 .ph-badge--accent {
   background-color: var(--ph-color-accent-subtle);
   color: var(--ph-color-accent-subtle-text);
+}
+
+/** Reserved for the sparing "CTA" highlight use case (e.g. unread counts) — not a general-purpose alternative to `accent`. */
+.ph-badge--cta {
+  background-color: var(--ph-color-cta-subtle);
+  color: var(--ph-color-cta-subtle-text);
 }
 
 .ph-badge--success {

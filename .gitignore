@@ -24,3 +24,7 @@ mobile/.expo-shared/
 .vscode/*
 !.vscode/extensions.json
 .idea/
+
+# Python bytecode (skill scripts)
+__pycache__/
+*.pyc

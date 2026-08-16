@@ -29,6 +29,11 @@ withDefaults(
   border: 1px solid var(--ph-color-border-subtle);
   border-radius: var(--ph-radius-lg);
   box-shadow: var(--ph-shadow-sm);
+  transition: box-shadow var(--ph-duration-fast) var(--ph-easing-standard);
+}
+
+.ph-card:hover {
+  box-shadow: var(--ph-shadow-md);
 }
 
 .ph-card__header {
