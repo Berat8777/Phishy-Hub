@@ -59,7 +59,15 @@ export async function create(req: Request, res: Response): Promise<void> {
   const dto = await messageService.toMessageDTO(message, req.user!.id);
 
   const io = tryGetIo();
-  if (io) broadcastNewMessage(io, dto);
+  // `tempId` is purely a client-side broadcast-correlation token (see
+  // createMessageValidator) — passing it through here mirrors what the
+  // socket `message:send` handler already does with `payload.tempId`, so a
+  // REST-created message's broadcast can be reconciled against the
+  // sender's own optimistic row by tempId, the same way, instead of the
+  // client having to guess which pending send a tempId-less broadcast
+  // belongs to (ambiguous the moment the same user has two active clients
+  // in the same channel).
+  if (io) broadcastNewMessage(io, dto, req.body.tempId);
 
   sendSuccess(res, dto, 201);
 }

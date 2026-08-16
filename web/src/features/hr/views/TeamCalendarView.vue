@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
-import { PhCalendarMonth, PhSelect } from '@phishyhub/design-system';
+import { PhCalendarMonth, PhSelect, PhTooltip } from '@phishyhub/design-system';
 import type { SelectOption } from '@phishyhub/design-system';
 import * as departmentsApi from '../../../api/endpoints/departments';
 import { useAuthStore } from '../../../stores/auth';
 import { useLeaveStore } from '../stores/leave';
 import CalendarLeavePill from '../components/CalendarLeavePill.vue';
-import type { DepartmentDTO } from '../../../api/types';
+import type { DepartmentDTO, LeaveCalendarEntryDTO } from '../../../api/types';
+
+/** A cell only has ~96px of height to work with (PhCalendarMonth) — beyond this many people out on one day, the rest collapse into a single "+N more" affordance (tooltip-only, see `overflowText`) rather than letting the grid row grow unbounded. */
+const MAX_VISIBLE_PILLS = 3;
 
 const authStore = useAuthStore();
 const leaveStore = useLeaveStore();
@@ -66,6 +69,38 @@ const entriesByDate = computed(() => {
   return map;
 });
 
+interface DayCellData {
+  visible: LeaveCalendarEntryDTO[];
+  overflowCount: number;
+  overflowText: string;
+}
+
+/**
+ * Derived once per `entriesByDate` change (not per template access) — the
+ * `#default` slot below reads `cellDayData.get(date)` up to 3x per cell
+ * (visible pills + the two overflow bindings), so computing this eagerly
+ * here avoids re-slicing/re-joining the same day's entries on every one of
+ * those reads.
+ */
+const cellDayData = computed(() => {
+  const map = new Map<string, DayCellData>();
+  for (const [date, all] of entriesByDate.value) {
+    const overflow = all.slice(MAX_VISIBLE_PILLS);
+    map.set(date, {
+      visible: all.slice(0, MAX_VISIBLE_PILLS),
+      overflowCount: overflow.length,
+      overflowText: overflow.map((entry) => `${entry.user.firstName} ${entry.user.lastName}`).join(', '),
+    });
+  }
+  return map;
+});
+
+const EMPTY_DAY: DayCellData = { visible: [], overflowCount: 0, overflowText: '' };
+
+function dayEntries(date: string): DayCellData {
+  return cellDayData.value.get(date) ?? EMPTY_DAY;
+}
+
 onMounted(async () => {
   try {
     const { items } = await departmentsApi.listDepartments({ pageSize: 100 });
@@ -94,7 +129,14 @@ watch([year, month, departmentId], refetch);
         <div class="team-calendar-view__cell" :class="{ 'team-calendar-view__cell--outside': !isCurrentMonth }">
           <span class="team-calendar-view__day-number">{{ Number(date.slice(-2)) }}</span>
           <div class="team-calendar-view__pills">
-            <CalendarLeavePill v-for="entry in entriesByDate.get(date) ?? []" :key="entry.id" :entry="entry" />
+            <CalendarLeavePill v-for="entry in dayEntries(date).visible" :key="entry.id" :entry="entry" />
+            <PhTooltip
+              v-if="dayEntries(date).overflowCount > 0"
+              :text="dayEntries(date).overflowText"
+              placement="top"
+            >
+              <span class="team-calendar-view__more">+{{ dayEntries(date).overflowCount }} more</span>
+            </PhTooltip>
           </div>
         </div>
       </template>
@@ -156,5 +198,17 @@ watch([year, month, departmentId], refetch);
   flex-direction: column;
   gap: 2px;
   overflow: hidden;
+}
+
+.team-calendar-view__more {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--ph-space-1);
+  border-radius: var(--ph-radius-sm);
+  font-size: var(--ph-font-size-xs);
+  font-weight: var(--ph-font-weight-medium);
+  color: var(--ph-color-text-muted);
+  background-color: var(--ph-color-surface-sunken);
+  cursor: default;
 }
 </style>

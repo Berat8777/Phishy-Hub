@@ -5,6 +5,7 @@ import type { SelectOption } from '@phishyhub/design-system';
 import * as departmentsApi from '../../../api/endpoints/departments';
 import { useAdminStore } from '../stores/admin';
 import { useAuthStore } from '../../../stores/auth';
+import { useUsersStore } from '../../../stores/users';
 import { canGrantAdminRole } from '../../../lib/permissions';
 import { ALL_USER_ROLES, ALL_USER_STATUSES, USER_ROLE_LABELS, USER_STATUS_LABELS } from '../lib/roles';
 import { isApiError } from '../../../api/errors';
@@ -21,6 +22,7 @@ const emit = defineEmits<{ 'update:modelValue': [value: boolean]; updated: [] }>
 
 const adminStore = useAdminStore();
 const authStore = useAuthStore();
+const usersStore = useUsersStore();
 const toast = useToast();
 
 const role = ref<UserRole>('employee');
@@ -85,7 +87,15 @@ async function onSubmit(): Promise<void> {
       departmentId: departmentId.value || null,
     };
     if (role.value !== props.user.role) patch.role = role.value;
-    await adminStore.updateUser(props.user.id, patch);
+    const updated = await adminStore.updateUser(props.user.id, patch);
+    // `adminStore.updateUser` only splices the fresh row into its own
+    // paginated `users` array (the admin table) — it never touches
+    // `usersStore`, the id-keyed cache `UserProfileModal.vue`/`UserPopover.vue`/
+    // `ChannelSidebar.vue` all read from (and `usersStore.fetchUser` never
+    // re-fetches an already-cached id), so without this the profile modal
+    // would keep showing the pre-edit role/status/department for the rest
+    // of the session. Same fix as the self-edit path (`UserProfileEditDialog.vue`).
+    usersStore.upsert(updated);
     toast.push({ title: 'User updated', variant: 'success' });
     emit('updated');
     emit('update:modelValue', false);

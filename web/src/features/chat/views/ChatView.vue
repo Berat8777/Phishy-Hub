@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { PhEmptyState, PhIcon } from '@phishyhub/design-system';
+import { PhEmptyState, PhIcon, PhTooltip } from '@phishyhub/design-system';
 import { useChannelsStore } from '../../../stores/channels';
 import { useSearchStore } from '../../../stores/search';
 import { useChannelLabel } from '../composables/useChannelLabel';
 import MessageList from '../components/message-list/MessageList.vue';
 import MessageComposer from '../components/composer/MessageComposer.vue';
+import ChannelMembersPanel from '../components/shared/ChannelMembersPanel.vue';
 import UserAvatar from '../../../components/shared/UserAvatar.vue';
 import PresenceDot from '../../../components/shared/PresenceDot.vue';
 
@@ -30,6 +31,7 @@ const { label, otherMemberIds } = useChannelLabel(() => activeChannel.value);
 const singleOtherUserId = computed(() => (otherMemberIds.value.length === 1 ? otherMemberIds.value[0] : null));
 
 const messageListRef = ref<InstanceType<typeof MessageList> | null>(null);
+const membersPanelOpen = ref(false);
 
 function onReply(messageId: string): void {
   if (!activeChannel.value) return;
@@ -61,10 +63,23 @@ watch(
         </span>
         <PhIcon v-else-if="activeChannel.type !== 'dm'" name="Hash" size="sm" />
         <h1 class="chat-view__title">{{ label }}</h1>
+
+        <PhTooltip v-if="activeChannel.type !== 'dm'" text="Members">
+          <button
+            type="button"
+            class="chat-view__members-btn"
+            aria-label="View channel members"
+            @click="membersPanelOpen = true"
+          >
+            <PhIcon name="Users" size="sm" />
+          </button>
+        </PhTooltip>
       </header>
 
       <MessageList ref="messageListRef" :source="{ kind: 'channel', id: activeChannel.id }" @reply="onReply" />
       <MessageComposer :channel-id="activeChannel.id" receive-global-drops />
+
+      <ChannelMembersPanel v-if="activeChannel.type !== 'dm'" v-model="membersPanelOpen" :channel-id="activeChannel.id" />
     </template>
 
     <div v-else class="chat-view__body">
@@ -109,6 +124,27 @@ watch(
   font-size: var(--ph-font-size-lg);
   font-weight: var(--ph-font-weight-semibold);
   color: var(--ph-color-text-default);
+}
+
+.chat-view__members-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-left: auto;
+  border-radius: var(--ph-radius-md);
+  color: var(--ph-color-text-muted);
+}
+
+.chat-view__members-btn:hover {
+  background-color: var(--ph-color-surface-hover);
+  color: var(--ph-color-text-default);
+}
+
+.chat-view__members-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--ph-focus-ring);
 }
 
 .chat-view__body {

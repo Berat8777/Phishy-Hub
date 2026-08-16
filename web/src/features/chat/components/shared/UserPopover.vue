@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { PhPopover } from '@phishyhub/design-system';
+import { PhButton, PhPopover } from '@phishyhub/design-system';
 import { useUsersStore } from '../../../../stores/users';
 import { usePresenceStore } from '../../../../stores/presence';
+import { useUserProfile } from '../../../../composables/useUserProfile';
 import UserAvatar from '../../../../components/shared/UserAvatar.vue';
 import PresenceDot from '../../../../components/shared/PresenceDot.vue';
 
@@ -10,6 +11,7 @@ const props = defineProps<{ userId: string }>();
 
 const usersStore = useUsersStore();
 const presenceStore = usePresenceStore();
+const userProfile = useUserProfile();
 const open = ref(false);
 
 const user = computed(() => usersStore.getUser(props.userId));
@@ -24,6 +26,11 @@ watch(open, async (isOpen) => {
     }
   }
 });
+
+function viewFullProfile(): void {
+  open.value = false;
+  userProfile.open(props.userId);
+}
 </script>
 
 <template>
@@ -46,6 +53,7 @@ watch(open, async (isOpen) => {
           <span>{{ online ? 'Online' : 'Offline' }}</span>
         </p>
       </div>
+      <PhButton variant="secondary" size="sm" @click="viewFullProfile">View full profile</PhButton>
     </div>
   </PhPopover>
 </template>

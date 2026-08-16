@@ -42,8 +42,8 @@ export function leaveChannel(channelId: string): Promise<unknown> {
   return http.post(`/channels/${channelId}/leave`).then((r) => r.data);
 }
 
-export function addMember(channelId: string, userId: string): Promise<unknown> {
-  return http.post(`/channels/${channelId}/members`, { userId }).then((r) => r.data);
+export function addMember(channelId: string, userId: string): Promise<ChannelMemberDTO> {
+  return http.post<ChannelMemberDTO>(`/channels/${channelId}/members`, { userId }).then((r) => r.data);
 }
 
 export function removeMember(channelId: string, userId: string): Promise<void> {

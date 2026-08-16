@@ -230,12 +230,15 @@ export const useMessagesStore = defineStore('messages', () => {
    *
    * `fileIds` (attachments) routes through the REST endpoint instead of the
    * `message:send` socket emit — CONTRACT.md §4.2's socket payload has no
-   * `fileIds` field, only the REST body does. The REST response is
-   * reconciled against our own tempId directly (not by waiting on the
-   * `message:new` broadcast): a REST-created message's broadcast carries no
-   * `tempId` (that field only exists when the server got it from a socket
-   * payload), so without this the optimistic row would never get replaced
-   * and the broadcast would land as a second, duplicate entry instead.
+   * `fileIds` field, only the REST body does. `tempId` is sent on BOTH
+   * paths now (CONTRACT.md §3.6/§4.2) so the `message:new` broadcast always
+   * carries it regardless of which path produced it, and this function's
+   * own `upsertMessage(message, tempId)` call below and the broadcast
+   * arriving via `receiveMessage` both reconcile against the exact same
+   * real tempId — no client-side guessing which pending send a broadcast
+   * belongs to (that guess was the previous version of this fix, and broke
+   * down the moment the same user had two clients sending into the same
+   * channel at once; see git history for `pendingRestSends` if curious).
    */
   async function sendMessage(
     channelId: string,
@@ -288,12 +291,23 @@ export const useMessagesStore = defineStore('messages', () => {
     }
 
     try {
+      // Both paths pass `tempId` through to the server now (REST:
+      // createMessageValidator + message.controller.ts's `create`; socket:
+      // message.handler.ts's `message:send`), so EITHER path's
+      // `message:new` broadcast — REST or socket-originated — always
+      // carries the real tempId and reconciles via the exact match in
+      // `upsertMessage` below, not a guess. That's what makes this safe
+      // even with two of the sender's own clients (tabs/devices) both
+      // sending file-attached messages into the same channel around the
+      // same time: each broadcast only ever matches ITS OWN sender's
+      // tempId, never the other client's.
       const message =
         input.fileIds && input.fileIds.length > 0
           ? await messagesApi.sendMessage(channelId, {
               body: input.body,
               replyToMessageId: input.replyToMessageId,
               fileIds: input.fileIds,
+              tempId,
             })
           : await emitMessageSend({
               channelId,

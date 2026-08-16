@@ -271,7 +271,7 @@ pratikte düşük olasılıklı.
 | Method | Path | Auth | Not |
 |---|---|---|---|
 | GET | `/channels/:channelId/messages` | üye | Cursor pagination, bkz §2.2. **Sadece üst-seviye mesajlar** — `replyToMessageId IS NOT NULL` olan thread yanıtları artık bu listede yok, bkz "Threads" altında |
-| POST | `/channels/:channelId/messages` | üye | `{body?, replyToMessageId?, fileIds?}`. `body` boşsa `fileIds` zorunlu. **Socket'e de broadcast eder** (`message:new`) |
+| POST | `/channels/:channelId/messages` | üye | `{body?, replyToMessageId?, fileIds?, tempId?}`. `body` boşsa `fileIds` zorunlu. **Socket'e de broadcast eder** (`message:new`, `tempId` verildiyse broadcast payload'ına da eklenir — `message:send` socket yolundaki `tempId` ile aynı amaç: gönderenin kendi optimistic satırını `tempId` ile eşleştirebilmesi, iki istemcinin aynı kanalda eşzamanlı dosya ekli mesaj göndermesi durumunda bile belirsizlik olmadan) |
 | GET | `/messages/search` | herkes | `?q=<terim>&channelId=<opsiyonel>` + offset pagination (§2.1). Bkz "Search" altında |
 | GET | `/messages/:messageId/replies` | üye | Cursor pagination, bkz §2.2. `replyToMessageId = :messageId` olan mesajlar |
 | PUT | `/messages/:messageId/reactions` | üye | `{emoji}` — bkz "Reactions" altında |

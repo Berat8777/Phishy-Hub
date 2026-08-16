@@ -7,7 +7,7 @@
  * (`'admin'`, `'hr'`, etc.) should appear directly in a Vue template
  * anywhere in this phase — every such check goes through this file instead.
  */
-import type { LeaveRequestDTO, TicketCommentDTO, TicketDTO, UserDTO } from '../api/types';
+import type { ChannelMemberDTO, LeaveRequestDTO, TicketCommentDTO, TicketDTO, UserDTO } from '../api/types';
 
 /**
  * Leave request review (`POST /leave-requests/:id/review`,
@@ -84,4 +84,19 @@ export function canDeleteDepartments(user: UserDTO | null): boolean {
 export function canGrantAdminRole(user: UserDTO | null): boolean {
   if (!user) return false;
   return user.role === 'admin';
+}
+
+/**
+ * Whether `user` may add a member to a channel (`POST /channels/:id/members`,
+ * channel.service.ts::addMember -> authz.service.ts::assertChannelAdmin): a
+ * global `admin`, OR a user whose OWN membership row in THIS channel has
+ * `channelRole: 'admin'`. Channel-admin-ness isn't a property of `UserDTO`,
+ * so the viewer's own `ChannelMemberDTO` (if any, found by matching
+ * `userId` in the channel's member list) is passed in rather than looked up
+ * here.
+ */
+export function canAddChannelMember(user: UserDTO | null, ownMembership: ChannelMemberDTO | null): boolean {
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  return ownMembership?.channelRole === 'admin';
 }

@@ -5,6 +5,7 @@ import { PhButton, PhDropdown, PhIcon, PhScrollArea, PhSpinner } from '@phishyhu
 import { useChannelsStore } from '../../../../stores/channels';
 import { useAuthStore } from '../../../../stores/auth';
 import { useUiStore } from '../../../../stores/ui';
+import { useUserProfile } from '../../../../composables/useUserProfile';
 import ChannelSectionList from './ChannelSectionList.vue';
 import ChannelCreateDialog from './ChannelCreateDialog.vue';
 import ChannelBrowser from './ChannelBrowser.vue';
@@ -15,6 +16,7 @@ import SearchPanel from '../shared/SearchPanel.vue';
 const channelsStore = useChannelsStore();
 const authStore = useAuthStore();
 const uiStore = useUiStore();
+const userProfile = useUserProfile();
 const router = useRouter();
 
 const createOpen = ref(false);
@@ -116,8 +118,16 @@ async function onLogout(): Promise<void> {
     </PhScrollArea>
 
     <div class="channel-sidebar__footer">
-      <UserAvatar v-if="authStore.user" :user-id="authStore.user.id" size="sm" show-presence />
-      <span class="channel-sidebar__user">{{ authStore.user?.firstName }} {{ authStore.user?.lastName }}</span>
+      <button
+        v-if="authStore.user"
+        type="button"
+        class="channel-sidebar__self"
+        aria-label="View your profile"
+        @click="userProfile.open(authStore.user.id)"
+      >
+        <UserAvatar :user-id="authStore.user.id" size="sm" show-presence />
+        <span class="channel-sidebar__user">{{ authStore.user.firstName }} {{ authStore.user.lastName }}</span>
+      </button>
       <button type="button" class="channel-sidebar__icon-btn" aria-label="Toggle theme" @click="uiStore.toggleTheme">
         <PhIcon :name="uiStore.theme === 'dark' ? 'Sun' : 'Moon'" size="sm" />
       </button>
@@ -220,6 +230,25 @@ async function onLogout(): Promise<void> {
   border-top: 1px solid var(--ph-color-border-subtle);
 }
 
+.channel-sidebar__self {
+  display: flex;
+  align-items: center;
+  gap: var(--ph-space-2);
+  flex: 1;
+  min-width: 0;
+  padding: var(--ph-space-1);
+  border-radius: var(--ph-radius-md);
+}
+
+.channel-sidebar__self:hover {
+  background-color: var(--ph-color-surface-hover);
+}
+
+.channel-sidebar__self:focus-visible {
+  outline: none;
+  box-shadow: var(--ph-focus-ring);
+}
+
 .channel-sidebar__user {
   flex: 1;
   min-width: 0;
@@ -228,5 +257,6 @@ async function onLogout(): Promise<void> {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: left;
 }
 </style>

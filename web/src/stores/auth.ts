@@ -1,6 +1,7 @@
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
 import * as authApi from '../api/endpoints/auth';
+import * as usersApi from '../api/endpoints/users';
 import * as tokenManager from '../api/tokenManager';
 import { connectSocket, disconnectSocket } from '../socket/connection';
 import { resetAllStores } from './index';
@@ -69,6 +70,28 @@ export const useAuthStore = defineStore('auth', () => {
     status.value = 'unauthenticated';
   }
 
+  /**
+   * `PATCH /users/me` (CONTRACT.md §3.3) — self-service profile edit, used
+   * by `UserProfileEditDialog.vue` when the viewer is looking at their own
+   * profile. Keeps both the reactive `user` ref AND `tokenManager`'s
+   * localStorage copy in sync (`tokenManager.setUser`, its documented hook
+   * for exactly this), so a page reload right after editing still shows the
+   * new name.
+   *
+   * `managedDepartmentIds` is preserved from the existing session user
+   * rather than taken from the response — per `UserDTO`'s doc comment
+   * (api/types.ts), it's only ever populated on register/login/`GET
+   * /auth/me`, so `PATCH /users/me`'s response would otherwise silently
+   * wipe it back to `[]` for a department-manager editing their own name.
+   */
+  async function updateSelf(patch: { firstName?: string; lastName?: string; avatarFileId?: string }): Promise<UserDTO> {
+    const updated = await usersApi.updateMe(patch);
+    const merged: UserDTO = { ...updated, managedDepartmentIds: user.value?.managedDepartmentIds ?? [] };
+    user.value = merged;
+    tokenManager.setUser(merged);
+    return merged;
+  }
+
   /** Manual logout — best-effort server-side revoke (CONTRACT.md: idempotent, safe even if it fails/times out). */
   async function logout(): Promise<void> {
     const refreshToken = tokenManager.getRefreshToken();
@@ -82,5 +105,5 @@ export const useAuthStore = defineStore('auth', () => {
     hardReset();
   }
 
-  return { user, status, login, register, logout, hardReset };
+  return { user, status, login, register, updateSelf, logout, hardReset };
 });

@@ -18,7 +18,7 @@ export function listMessages(
  */
 export function sendMessage(
   channelId: string,
-  input: { body?: string; replyToMessageId?: string; fileIds?: string[] },
+  input: { body?: string; replyToMessageId?: string; fileIds?: string[]; tempId?: string },
 ): Promise<MessageDTO> {
   return http.post<MessageDTO>(`/channels/${channelId}/messages`, input).then((r) => r.data);
 }

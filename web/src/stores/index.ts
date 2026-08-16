@@ -4,10 +4,12 @@ import { useThreadsStore } from './threads';
 import { usePresenceStore } from './presence';
 import { useTypingStore } from './typing';
 import { useUsersStore } from './users';
+import { useDepartmentsStore } from './departments';
 import { useFilesStore } from './files';
 import { useNotificationsStore } from './notifications';
 import { useDraftsStore } from './drafts';
 import { useSearchStore } from './search';
+import { useUserProfileStore } from './userProfile';
 import { useTicketsStore } from '../features/boards/stores/tickets';
 import { useTicketCommentsStore } from '../features/boards/stores/ticketComments';
 import { useLeaveStore } from '../features/hr/stores/leave';
@@ -29,10 +31,16 @@ export function resetAllStores(): void {
   usePresenceStore().reset();
   useTypingStore().reset();
   useUsersStore().reset();
+  useDepartmentsStore().reset();
   useFilesStore().reset();
   useNotificationsStore().reset();
   useDraftsStore().reset();
   useSearchStore().reset();
+  // The open-profile-modal pointer is UI state, not cached data, but still
+  // session-scoped (a stale userId open across a device-shared logout would
+  // be a minor but real cross-user leak — the modal would briefly show the
+  // NEXT user the PREVIOUS user's profile until it re-renders).
+  useUserProfileStore().reset();
   // Cross-user data-leak risk on a shared device if forgotten (tickets/
   // comments have no per-user visibility restriction, CONTRACT.md §1.4, so a
   // stale cache would show the PREVIOUS user's board contents until refetch).

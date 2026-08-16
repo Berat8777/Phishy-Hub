@@ -14,6 +14,13 @@ export const createMessageValidator = [
   body('replyToMessageId').optional({ nullable: true }).isUUID(),
   body('fileIds').optional().isArray(),
   body('fileIds.*').optional().isUUID(),
+  // Mirrors the socket `message:send` payload's `tempId` (message.handler.ts)
+  // so a REST create (used whenever `fileIds` is present) can echo it back
+  // on the `message:new` broadcast too — lets the sender's own client
+  // reconcile its optimistic row by tempId instead of guessing, same as the
+  // socket path already does. Client-generated (crypto.randomUUID()), never
+  // persisted — purely a broadcast-correlation passthrough.
+  body('tempId').optional({ nullable: true }).isString(),
   validate,
 ];
 

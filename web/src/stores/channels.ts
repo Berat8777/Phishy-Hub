@@ -87,6 +87,22 @@ export const useChannelsStore = defineStore('channels', () => {
   }
 
   /**
+   * `POST /channels/:id/members` — server-side authorization is
+   * `assertChannelAdmin` (channel.service.ts::addMember): the actor must be
+   * either a global `admin` or hold `channelRole: 'admin'` on this channel
+   * themselves. Appends the resulting membership to the cached list so
+   * ChannelMembersPanel.vue reflects it immediately without a refetch.
+   */
+  async function addMember(channelId: string, userId: string): Promise<ChannelMemberDTO> {
+    const membership = await channelsApi.addMember(channelId, userId);
+    const list = membersByChannel.value.get(channelId) ?? [];
+    if (!list.some((m) => m.userId === userId)) {
+      membersByChannel.value.set(channelId, [...list, membership]);
+    }
+    return membership;
+  }
+
+  /**
    * Marks a channel read up to `lastReadMessageId` — emits `message:read`
    * (CONTRACT.md §4.2) and relies on the resulting `message:read` broadcast
    * (which the server sends to the whole room, sender included per §4.3) to
@@ -143,6 +159,7 @@ export const useChannelsStore = defineStore('channels', () => {
     getChannel,
     getMembers,
     fetchMembers,
+    addMember,
     markRead,
     applyIncomingMessagePreview,
     applyReadReceipt,

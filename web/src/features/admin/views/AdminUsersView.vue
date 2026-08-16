@@ -6,6 +6,7 @@ import { useAdminStore } from '../stores/admin';
 import { useAuthStore } from '../../../stores/auth';
 import { canDeleteUsers, canManageUsers } from '../../../lib/permissions';
 import { ALL_USER_ROLES, ALL_USER_STATUSES, USER_ROLE_LABELS, USER_STATUS_LABELS } from '../lib/roles';
+import { useUserProfile } from '../../../composables/useUserProfile';
 import UserAvatar from '../../../components/shared/UserAvatar.vue';
 import UserCreateDialog from '../components/UserCreateDialog.vue';
 import UserEditDialog from '../components/UserEditDialog.vue';
@@ -14,6 +15,7 @@ import type { UserDTO } from '../../../api/types';
 
 const adminStore = useAdminStore();
 const authStore = useAuthStore();
+const userProfile = useUserProfile();
 const toast = useToast();
 
 const columns: PhTableColumn[] = [
@@ -135,10 +137,14 @@ onMounted(async () => {
       @sort="onSort"
     >
       <template #cell-name="{ row }">
-        <div class="admin-users-view__name-cell">
+        <button
+          type="button"
+          class="admin-users-view__name-cell"
+          @click="userProfile.open((row as UserDTO).id)"
+        >
           <UserAvatar :user-id="(row as UserDTO).id" size="sm" />
           <span>{{ (row as UserDTO).firstName }} {{ (row as UserDTO).lastName }}</span>
-        </div>
+        </button>
       </template>
       <template #cell-role="{ row }">
         <PhBadge variant="accent">{{ USER_ROLE_LABELS[(row as UserDTO).role] }}</PhBadge>
@@ -226,6 +232,21 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: var(--ph-space-2);
+  padding: 0;
+  border-radius: var(--ph-radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.admin-users-view__name-cell:hover span {
+  text-decoration: underline;
+}
+
+.admin-users-view__name-cell:focus-visible {
+  outline: none;
+  box-shadow: var(--ph-focus-ring);
 }
 
 .admin-users-view__actions {
