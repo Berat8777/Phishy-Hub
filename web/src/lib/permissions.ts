@@ -65,3 +65,23 @@ export function canManageDepartments(user: UserDTO | null): boolean {
   if (!user) return false;
   return user.role === 'admin' || user.role === 'hr';
 }
+
+/** Department delete (`DELETE /departments/:id`, CONTRACT.md §3.4): admin only — narrower than `canManageDepartments` (create/update), which also allows hr. Added by the HR/Admin pass since no predicate previously distinguished this from create/update. */
+export function canDeleteDepartments(user: UserDTO | null): boolean {
+  if (!user) return false;
+  return user.role === 'admin';
+}
+
+/**
+ * Whether `user` may grant the `admin` role to someone via
+ * `POST /users` / `PATCH /users/:id` — mirrors `user.service.ts`'s
+ * `adminCreateUser`/`adminUpdateUser` server-side check exactly (only an
+ * existing admin may hand out admin, even though both endpoints are
+ * otherwise reachable by `hr` too). Gates whether the `admin` option should
+ * even be offered in a role `<select>`, so an `hr` user managing
+ * create/edit-user dialogs never hits a confusing 403 on submit.
+ */
+export function canGrantAdminRole(user: UserDTO | null): boolean {
+  if (!user) return false;
+  return user.role === 'admin';
+}

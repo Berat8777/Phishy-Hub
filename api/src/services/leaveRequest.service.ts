@@ -4,6 +4,7 @@ import {
   assertOwnsLeaveRequestOrPrivileged,
   assertCanViewLeaveBalance,
   isManagerOfUser,
+  getManagedDepartmentIds,
 } from './authz.service';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../utils/errors';
 import { paginate, PaginationParams } from './pagination.service';
@@ -123,7 +124,21 @@ export async function listLeaveRequests(
   if (isPrivileged) {
     if (params.userId) where.userId = params.userId;
   } else {
-    where.userId = userId;
+    // Department managers additionally need to discover their reports'
+    // requests (to build an approvals queue) without knowing ids up front —
+    // same manager relationship reviewLeaveRequest() already trusts, just
+    // consulted here too. A caller who manages no department falls back to
+    // the plain "own requests only" behavior (unchanged for the common case).
+    const managedDepartmentIds = await getManagedDepartmentIds(userId);
+    if (managedDepartmentIds.length > 0) {
+      const reports = await User.findAll({ where: { departmentId: { [Op.in]: managedDepartmentIds } }, attributes: ['id'] });
+      where[Op.or as unknown as string] = [
+        { userId },
+        { userId: { [Op.in]: reports.map((u) => u.id) } },
+      ];
+    } else {
+      where.userId = userId;
+    }
   }
   return paginate(LeaveRequest, params, { where, include: REQUESTER_INCLUDE });
 }
@@ -134,7 +149,10 @@ export async function getLeaveRequestById(
   id: string,
 ): Promise<InstanceType<typeof LeaveRequest>> {
   const leaveRequest = await getOrThrow(id);
-  assertOwnsLeaveRequestOrPrivileged(leaveRequest, userId, role);
+  const isPrivileged = role === 'hr' || role === 'admin';
+  if (leaveRequest.userId !== userId && !isPrivileged && !(await isManagerOfUser(userId, leaveRequest.userId))) {
+    throw new ForbiddenError('You do not have access to this leave request');
+  }
   return leaveRequest;
 }
 

@@ -10,6 +10,8 @@ import { useDraftsStore } from './drafts';
 import { useSearchStore } from './search';
 import { useTicketsStore } from '../features/boards/stores/tickets';
 import { useTicketCommentsStore } from '../features/boards/stores/ticketComments';
+import { useLeaveStore } from '../features/hr/stores/leave';
+import { useAdminStore } from '../features/admin/stores/admin';
 
 /**
  * Resets every session-scoped Pinia store to its initial state. Called on
@@ -36,4 +38,10 @@ export function resetAllStores(): void {
   // stale cache would show the PREVIOUS user's board contents until refetch).
   useTicketsStore().reset();
   useTicketCommentsStore().reset();
+  // Same cross-user data-leak risk as tickets above — leave requests/balance
+  // and the admin user/department tables are equally sensitive on a shared
+  // device and have no per-user visibility restriction baked into the cache
+  // key, so a stale cache would leak the PREVIOUS user's data until refetch.
+  useLeaveStore().reset();
+  useAdminStore().reset();
 }

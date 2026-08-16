@@ -365,10 +365,10 @@ manager_approved -> approved | rejected            (sadece hr/admin)
 
 | Method | Path | Auth/Rol |
 |---|---|---|
-| GET | `/leave-requests` | herkes → sadece kendisininkiler; `hr`/`admin` → hepsi, `?status=&userId=` |
+| GET | `/leave-requests` | herkes → kendisininkiler + (varsa) yönettiği departman(lar)daki kullanıcıların talepleri; `hr`/`admin` → hepsi, `?status=&userId=` |
 | GET | `/leave-requests/balance` | herkes (kendisi) veya `hr`/`admin`/talep sahibinin departman manager'ı — `?userId=&year=`. `userId` verilmezse kendisi, `year` verilmezse içinde bulunulan yıl |
 | POST | `/leave-requests` | herkes — `{type, startDate, endDate, reason?}` (ISO 8601 tarih) |
-| GET | `/leave-requests/:id` | sahibi veya `hr`/`admin` |
+| GET | `/leave-requests/:id` | sahibi, talep sahibinin departman manager'ı veya `hr`/`admin` |
 | POST | `/leave-requests/:id/review` | departmanın manager'ı (sadece `pending` iken) veya `hr`/`admin` (her iki aşamada) — **body şekli değişti**: `{decision:'approve'|'reject', reviewNote?}` (eskiden `{status:'approved'|'rejected'}` idi — **breaking change**, repo içinde başka çağıran yoktu) |
 | POST | `/leave-requests/:id/cancel` | sahibi (sadece `pending`/`manager_approved` iken) veya `hr`/`admin` (`approved` dahil, terminal-olmayan her durumda — HR onay-sonrası plan değişikliklerini yönetebilsin diye) |
 

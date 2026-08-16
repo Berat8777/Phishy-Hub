@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
 import { buildApp } from './helpers/testServer';
-import { registerAndLogin, loginDemoUser, bearer } from './helpers/factories';
+import { registerAndLogin, loginDemoUser, bearer, uniqueEmail } from './helpers/factories';
 import type { AuthedSession } from './helpers/factories';
 import { DEMO_USERS } from './helpers/demoUsers';
 
@@ -123,6 +123,82 @@ describe('leave request approval chain', () => {
         .send({ decision: 'reject', reviewNote: 'Not enough coverage that day' });
       expect(rejectRes.status).toBe(200);
       expect(rejectRes.body.data.status).toBe('rejected');
+    });
+  });
+
+  describe('GET /leave-requests and GET /leave-requests/:id — department manager discovery of reports\' requests', () => {
+    it('a department manager sees a report\'s pending request via GET /leave-requests without passing userId, and can GET it by id (200, not 403)', async () => {
+      const report = await registerAndLogin(app, { departmentId: engineeringDeptId });
+      const createRes = await request(app)
+        .post('/api/v1/leave-requests')
+        .set('Authorization', bearer(report.accessToken))
+        .send({ type: 'annual', startDate: '2027-05-01', endDate: '2027-05-02' });
+      expect(createRes.status).toBe(201);
+      const leaveRequestId = createRes.body.data.id;
+
+      const listRes = await request(app)
+        .get('/api/v1/leave-requests?pageSize=100')
+        .set('Authorization', bearer(dev1.accessToken));
+      expect(listRes.status).toBe(200);
+      const found = listRes.body.data.find((r: { id: string }) => r.id === leaveRequestId);
+      expect(found).toBeTruthy();
+
+      const getRes = await request(app)
+        .get(`/api/v1/leave-requests/${leaveRequestId}`)
+        .set('Authorization', bearer(dev1.accessToken));
+      expect(getRes.status).toBe(200);
+      expect(getRes.body.data.id).toBe(leaveRequestId);
+    });
+
+    it('a caller who manages no department still only sees their own requests in the list, and gets 403 on someone else\'s by id', async () => {
+      const requester = await registerAndLogin(app, { departmentId: engineeringDeptId });
+      const outsider = await registerAndLogin(app);
+
+      const createRes = await request(app)
+        .post('/api/v1/leave-requests')
+        .set('Authorization', bearer(requester.accessToken))
+        .send({ type: 'annual', startDate: '2027-05-05', endDate: '2027-05-06' });
+      expect(createRes.status).toBe(201);
+      const leaveRequestId = createRes.body.data.id;
+
+      const listRes = await request(app)
+        .get('/api/v1/leave-requests?pageSize=100')
+        .set('Authorization', bearer(outsider.accessToken));
+      expect(listRes.status).toBe(200);
+      expect(listRes.body.data.every((r: { userId: string }) => r.userId === outsider.userId)).toBe(true);
+
+      const getRes = await request(app)
+        .get(`/api/v1/leave-requests/${leaveRequestId}`)
+        .set('Authorization', bearer(outsider.accessToken));
+      expect(getRes.status).toBe(403);
+    });
+
+    it('a manager of a DIFFERENT department than the request owner still only sees their own requests / gets 403 on someone else\'s', async () => {
+      const otherManager = await registerAndLogin(app);
+      const otherDeptRes = await request(app)
+        .post('/api/v1/departments')
+        .set('Authorization', bearer(admin.accessToken))
+        .send({ name: `Other-${uniqueEmail()}`, managerId: otherManager.userId });
+      expect(otherDeptRes.status).toBe(201);
+
+      const requester = await registerAndLogin(app, { departmentId: engineeringDeptId });
+      const createRes = await request(app)
+        .post('/api/v1/leave-requests')
+        .set('Authorization', bearer(requester.accessToken))
+        .send({ type: 'annual', startDate: '2027-05-08', endDate: '2027-05-09' });
+      expect(createRes.status).toBe(201);
+      const leaveRequestId = createRes.body.data.id;
+
+      const listRes = await request(app)
+        .get('/api/v1/leave-requests?pageSize=100')
+        .set('Authorization', bearer(otherManager.accessToken));
+      expect(listRes.status).toBe(200);
+      expect(listRes.body.data.every((r: { userId: string }) => r.userId === otherManager.userId)).toBe(true);
+
+      const getRes = await request(app)
+        .get(`/api/v1/leave-requests/${leaveRequestId}`)
+        .set('Authorization', bearer(otherManager.accessToken));
+      expect(getRes.status).toBe(403);
     });
   });
 

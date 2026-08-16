@@ -8,6 +8,14 @@ import ThreadView from '../features/chat/views/ThreadView.vue';
 import KanbanBoardView from '../features/boards/views/KanbanBoardView.vue';
 import BoardsSidebarView from '../features/boards/views/BoardsSidebarView.vue';
 import TicketDetailView from '../features/boards/views/TicketDetailView.vue';
+import HrSidebarView from '../features/hr/views/HrSidebarView.vue';
+import LeaveRequestsView from '../features/hr/views/LeaveRequestsView.vue';
+import LeaveApprovalsView from '../features/hr/views/LeaveApprovalsView.vue';
+import TeamCalendarView from '../features/hr/views/TeamCalendarView.vue';
+import AdminSidebarView from '../features/admin/views/AdminSidebarView.vue';
+import AdminOverviewView from '../features/admin/views/AdminOverviewView.vue';
+import AdminUsersView from '../features/admin/views/AdminUsersView.vue';
+import AdminDepartmentsView from '../features/admin/views/AdminDepartmentsView.vue';
 import { authGuard, roleGuard } from './guards';
 import type { UserRole } from '../api/types';
 
@@ -96,6 +104,73 @@ const router = createRouter({
             default: KanbanBoardView,
             sidebar: BoardsSidebarView,
             aside: TicketDetailView,
+          },
+        },
+      ],
+    },
+    {
+      path: '/hr',
+      component: AppShell,
+      meta: { section: 'hr' },
+      children: [
+        {
+          path: '',
+          name: 'hr',
+          components: {
+            default: LeaveRequestsView,
+            sidebar: HrSidebarView,
+          },
+        },
+        {
+          // Not a pure `meta.roles` check — "department manager" is a
+          // relationship (`managedDepartmentIds`), not a role (CONTRACT.md
+          // §3.4) — so access is verified inside LeaveApprovalsView itself
+          // (redirects to `hr` if the viewer isn't hr/admin and manages no
+          // department), not via `roleGuard`.
+          path: 'approvals',
+          name: 'hr-approvals',
+          components: {
+            default: LeaveApprovalsView,
+            sidebar: HrSidebarView,
+          },
+        },
+        {
+          path: 'calendar',
+          name: 'hr-calendar',
+          components: {
+            default: TeamCalendarView,
+            sidebar: HrSidebarView,
+          },
+        },
+      ],
+    },
+    {
+      path: '/admin',
+      component: AppShell,
+      meta: { section: 'admin', roles: ['admin', 'hr'] },
+      children: [
+        {
+          path: '',
+          name: 'admin',
+          components: {
+            default: AdminOverviewView,
+            sidebar: AdminSidebarView,
+          },
+        },
+        {
+          path: 'users',
+          name: 'admin-users',
+          components: {
+            default: AdminUsersView,
+            sidebar: AdminSidebarView,
+          },
+        },
+        {
+          path: 'departments',
+          name: 'admin-departments',
+          components: {
+            default: AdminDepartmentsView,
+            sidebar: AdminSidebarView,
           },
         },
       ],

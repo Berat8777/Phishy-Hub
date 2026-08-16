@@ -5,12 +5,14 @@ import { PhIcon } from '@phishyhub/design-system';
 import type { IconName } from '@phishyhub/design-system';
 import DropZone from '../features/chat/components/composer/DropZone.vue';
 import { useDropZoneStore } from '../stores/dropzone';
+import { useAuthStore } from '../stores/auth';
+import { canManageDepartments, canManageUsers } from '../lib/permissions';
 
 /**
  * Left icon rail. Modeled as a list so a later phase can append more
- * entries (HR, admin) without restructuring this component — each entry
- * just needs a `section` matching some route's `meta.section` (router/
- * index.ts) and a route name to navigate to.
+ * entries without restructuring this component — each entry just needs a
+ * `section` matching some route's `meta.section` (router/index.ts) and a
+ * route name to navigate to.
  *
  * Active-state uses `meta.section` (NOT exact route-name matching) so a
  * nested route like `chat-thread` still highlights "Chat" — the previous
@@ -25,14 +27,28 @@ interface RailItem {
   routeName: string;
 }
 
-const railItems: RailItem[] = [
-  { key: 'chat', label: 'Chat', icon: 'MessageSquare', section: 'chat', routeName: 'chat' },
-  { key: 'boards', label: 'Boards', icon: 'Kanban', section: 'boards', routeName: 'boards' },
-];
-
 const router = useRouter();
+const authStore = useAuthStore();
 const activeSection = computed(() => router.currentRoute.value.meta.section);
 const dropZoneStore = useDropZoneStore();
+
+/**
+ * `admin` is hidden entirely (not just disabled) for anyone who'd just get
+ * redirected out of it by `roleGuard` (`meta.roles: ['admin','hr']`) — an
+ * employee/developer/sales user has no reachable page under `/admin`, so
+ * showing the icon at all would be a confusing dead end.
+ */
+const railItems = computed<RailItem[]>(() => {
+  const items: RailItem[] = [
+    { key: 'chat', label: 'Chat', icon: 'MessageSquare', section: 'chat', routeName: 'chat' },
+    { key: 'boards', label: 'Boards', icon: 'Kanban', section: 'boards', routeName: 'boards' },
+    { key: 'hr', label: 'Leave', icon: 'CalendarDays', section: 'hr', routeName: 'hr' },
+  ];
+  if (canManageUsers(authStore.user) || canManageDepartments(authStore.user)) {
+    items.push({ key: 'admin', label: 'Admin', icon: 'ShieldCheck', section: 'admin', routeName: 'admin' });
+  }
+  return items;
+});
 
 function go(routeName: string): void {
   void router.push({ name: routeName });

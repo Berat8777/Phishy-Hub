@@ -281,6 +281,60 @@ export interface LeaveRequestDTO {
   reviewer: LeaveRequestPersonDTO | null;
 }
 
+export type LeaveRequestReviewStage = 'manager' | 'hr';
+export type LeaveRequestReviewDecision = 'approve' | 'reject';
+
+/**
+ * `POST /leave-requests/:id/review` request body (CONTRACT.md §3.8 — the
+ * "breaking change" shape, `{decision, reviewNote?}`, NOT the old
+ * `{status: 'approved'|'rejected'}`).
+ *
+ * NOTE: this is deliberately NOT the `leave_request_reviews` audit-trail row
+ * shape (`id, leaveRequestId, reviewerId, stage, decision, note, createdAt`)
+ * — that table exists in the DB (migration `20260101001800`) and the model
+ * association (`LeaveRequest.hasMany(LeaveRequestReview, {as:'reviews'})`)
+ * exists, but as of this pass NO REST endpoint actually serializes/exposes
+ * it (`leaveRequest.service.ts`'s `REQUESTER_INCLUDE` only eager-loads
+ * `requester`/`reviewer`, never `reviews`, and there is no
+ * `/leave-requests/:id/reviews` route). `LeaveRequestDTO.reviewedById` /
+ * `reviewedAt` / `reviewNote` are themselves only a denormalized pointer to
+ * the LAST decision (CONTRACT.md §3.8), so a fully-approved request's
+ * stage-1 (manager) reviewer identity is not recoverable via any current
+ * endpoint. `ApprovalChainStepper.vue` renders around this limitation —
+ * see its doc comment and this pass's HANDOFF for the recommended backend
+ * follow-up.
+ */
+export interface LeaveRequestReviewDTO {
+  decision: LeaveRequestReviewDecision;
+  reviewNote?: string;
+}
+
+/** `GET /leave-requests/balance` entry (CONTRACT.md §3.8) — one per `LeaveRequestType`. */
+export interface LeaveBalanceDTO {
+  type: LeaveRequestType;
+  entitledDays: number;
+  carriedOverDays: number;
+  usedDays: number;
+  pendingDays: number;
+  /** `null` for types that don't deduct against entitlement — only `'annual'` does (CONTRACT.md §3.8). */
+  remainingDays: number | null;
+}
+
+/**
+ * `GET /leave-calendar` entry (CONTRACT.md §3.8/§11.2) — a structurally
+ * distinct, redacted projection, NOT a filtered `LeaveRequestDTO`.
+ * `reason`/`reviewNote` are never present.
+ */
+export interface LeaveCalendarEntryDTO {
+  id: string;
+  userId: string;
+  user: { id: string; firstName: string; lastName: string; avatarFileId: string | null; departmentId: string | null };
+  type: LeaveRequestType;
+  status: LeaveRequestStatus;
+  startDate: string;
+  endDate: string;
+}
+
 // --- Notifications (CONTRACT.md §3.11) ---
 
 export type NotificationType = 'leave_request_reviewed' | 'ticket_assigned' | 'meeting_invite' | string;
