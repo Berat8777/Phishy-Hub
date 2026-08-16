@@ -58,6 +58,7 @@ function go(routeName: string): void {
 <template>
   <div class="app-shell">
     <nav class="app-shell__rail" aria-label="Primary">
+      <span class="app-shell__mark" aria-hidden="true">P</span>
       <button
         v-for="item in railItems"
         :key="item.key"
@@ -103,6 +104,8 @@ function go(routeName: string): void {
 }
 
 .app-shell__rail {
+  position: relative;
+  z-index: 1;
   flex: 0 0 64px;
   display: flex;
   flex-direction: column;
@@ -111,9 +114,26 @@ function go(routeName: string): void {
   padding: var(--ph-space-3) 0;
   background-color: var(--ph-color-surface-raised);
   border-right: 1px solid var(--ph-color-border-subtle);
+  box-shadow: var(--ph-shadow-sm);
+}
+
+.app-shell__mark {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-bottom: var(--ph-space-3);
+  border-radius: var(--ph-radius-md);
+  background: linear-gradient(135deg, var(--ph-palette-blue-500), var(--ph-palette-orange-500));
+  color: var(--ph-color-text-inverse);
+  font-family: var(--ph-font-family-base);
+  font-weight: var(--ph-font-weight-bold);
+  font-size: var(--ph-font-size-md);
+  box-shadow: 0 6px 16px -6px rgb(37 99 235 / 0.55);
 }
 
 .app-shell__rail-item {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -132,8 +152,20 @@ function go(routeName: string): void {
 }
 
 .app-shell__rail-item--active {
-  background-color: var(--ph-color-accent-subtle);
-  color: var(--ph-color-accent-subtle-text);
+  background: linear-gradient(135deg, var(--ph-color-accent-subtle), var(--ph-color-accent-subtle) 60%);
+  color: var(--ph-color-accent);
+}
+
+.app-shell__rail-item--active::before {
+  content: '';
+  position: absolute;
+  left: -13px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 20px;
+  border-radius: var(--ph-radius-full);
+  background: linear-gradient(var(--ph-palette-blue-500), var(--ph-palette-orange-500));
 }
 
 .app-shell__rail-item:focus-visible {
