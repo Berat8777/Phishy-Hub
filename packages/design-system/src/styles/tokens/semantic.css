@@ -1,0 +1,167 @@
+/**
+ * Tier 2 — semantic tokens.
+ *
+ * These are the ONLY custom properties components should reference.
+ * Each maps to a tier-1 primitive (or a literal, where a primitive
+ * doesn't apply, e.g. pure white/black surfaces). Redefine every
+ * token here — never partially — inside the dark-mode blocks below.
+ *
+ * Theme resolution order:
+ *  1. `:root[data-theme="dark"]`  — explicit user choice, wins always.
+ *  2. `prefers-color-scheme`      — OS default, applies only when no
+ *                                    explicit `data-theme="light"` is set.
+ *  3. bare `:root`                — light values (the default).
+ */
+:root {
+  /* Backgrounds & surfaces */
+  --ph-color-bg-canvas: var(--ph-palette-slate-50);
+  --ph-color-surface-raised: #ffffff;
+  --ph-color-surface-overlay: #ffffff;
+  --ph-color-surface-sunken: var(--ph-palette-slate-100);
+  --ph-color-surface-hover: var(--ph-palette-slate-100);
+  --ph-color-surface-active: var(--ph-palette-slate-200);
+  --ph-color-surface-inverse: var(--ph-palette-slate-900);
+  --ph-color-overlay-scrim: rgb(15 23 42 / 0.45);
+
+  /* Text */
+  --ph-color-text-default: var(--ph-palette-slate-900);
+  --ph-color-text-muted: var(--ph-palette-slate-500);
+  --ph-color-text-subtle: var(--ph-palette-slate-400);
+  --ph-color-text-inverse: #ffffff;
+  --ph-color-text-on-accent: #ffffff;
+  --ph-color-text-disabled: var(--ph-palette-slate-300);
+
+  /* Accent */
+  --ph-color-accent: var(--ph-palette-indigo-600);
+  --ph-color-accent-hover: var(--ph-palette-indigo-700);
+  --ph-color-accent-active: var(--ph-palette-indigo-800);
+  --ph-color-accent-subtle: var(--ph-palette-indigo-50);
+  --ph-color-accent-subtle-text: var(--ph-palette-indigo-700);
+
+  /* Borders */
+  --ph-color-border-subtle: var(--ph-palette-slate-200);
+  --ph-color-border-strong: var(--ph-palette-slate-300);
+  --ph-color-border-focus: var(--ph-palette-indigo-500);
+
+  /* Status: danger */
+  --ph-color-danger: var(--ph-palette-red-500);
+  --ph-color-danger-hover: var(--ph-palette-red-600);
+  --ph-color-danger-active: var(--ph-palette-red-700);
+  --ph-color-danger-subtle: var(--ph-palette-red-50);
+  --ph-color-danger-subtle-text: var(--ph-palette-red-700);
+
+  /* Status: success */
+  --ph-color-success: var(--ph-palette-green-500);
+  --ph-color-success-hover: var(--ph-palette-green-600);
+  --ph-color-success-active: var(--ph-palette-green-700);
+  --ph-color-success-subtle: var(--ph-palette-green-50);
+  --ph-color-success-subtle-text: var(--ph-palette-green-700);
+
+  /* Status: warning */
+  --ph-color-warning: var(--ph-palette-amber-500);
+  --ph-color-warning-hover: var(--ph-palette-amber-600);
+  --ph-color-warning-active: var(--ph-palette-amber-700);
+  --ph-color-warning-subtle: var(--ph-palette-amber-50);
+  --ph-color-warning-subtle-text: var(--ph-palette-amber-700);
+
+  /* Focus ring */
+  --ph-focus-ring: 0 0 0 3px var(--ph-palette-indigo-200);
+}
+
+:root[data-theme='dark'] {
+  --ph-color-bg-canvas: var(--ph-palette-slate-900);
+  --ph-color-surface-raised: var(--ph-palette-slate-800);
+  --ph-color-surface-overlay: var(--ph-palette-slate-800);
+  --ph-color-surface-sunken: var(--ph-palette-slate-900);
+  --ph-color-surface-hover: var(--ph-palette-slate-700);
+  --ph-color-surface-active: var(--ph-palette-slate-600);
+  --ph-color-surface-inverse: var(--ph-palette-slate-50);
+  --ph-color-overlay-scrim: rgb(0 0 0 / 0.6);
+
+  --ph-color-text-default: var(--ph-palette-slate-50);
+  --ph-color-text-muted: var(--ph-palette-slate-400);
+  --ph-color-text-subtle: var(--ph-palette-slate-500);
+  --ph-color-text-inverse: var(--ph-palette-slate-900);
+  --ph-color-text-on-accent: #ffffff;
+  --ph-color-text-disabled: var(--ph-palette-slate-600);
+
+  --ph-color-accent: var(--ph-palette-indigo-500);
+  --ph-color-accent-hover: var(--ph-palette-indigo-400);
+  --ph-color-accent-active: var(--ph-palette-indigo-300);
+  --ph-color-accent-subtle: var(--ph-palette-indigo-900);
+  --ph-color-accent-subtle-text: var(--ph-palette-indigo-200);
+
+  --ph-color-border-subtle: var(--ph-palette-slate-700);
+  --ph-color-border-strong: var(--ph-palette-slate-600);
+  --ph-color-border-focus: var(--ph-palette-indigo-400);
+
+  --ph-color-danger: var(--ph-palette-red-500);
+  --ph-color-danger-hover: var(--ph-palette-red-600);
+  --ph-color-danger-active: var(--ph-palette-red-700);
+  --ph-color-danger-subtle: rgb(127 29 29 / 0.35);
+  --ph-color-danger-subtle-text: var(--ph-palette-red-100);
+
+  --ph-color-success: var(--ph-palette-green-500);
+  --ph-color-success-hover: var(--ph-palette-green-600);
+  --ph-color-success-active: var(--ph-palette-green-700);
+  --ph-color-success-subtle: rgb(20 83 45 / 0.35);
+  --ph-color-success-subtle-text: var(--ph-palette-green-100);
+
+  --ph-color-warning: var(--ph-palette-amber-500);
+  --ph-color-warning-hover: var(--ph-palette-amber-600);
+  --ph-color-warning-active: var(--ph-palette-amber-700);
+  --ph-color-warning-subtle: rgb(120 53 15 / 0.35);
+  --ph-color-warning-subtle-text: var(--ph-palette-amber-100);
+
+  --ph-focus-ring: 0 0 0 3px var(--ph-palette-indigo-800);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --ph-color-bg-canvas: var(--ph-palette-slate-900);
+    --ph-color-surface-raised: var(--ph-palette-slate-800);
+    --ph-color-surface-overlay: var(--ph-palette-slate-800);
+    --ph-color-surface-sunken: var(--ph-palette-slate-900);
+    --ph-color-surface-hover: var(--ph-palette-slate-700);
+    --ph-color-surface-active: var(--ph-palette-slate-600);
+    --ph-color-surface-inverse: var(--ph-palette-slate-50);
+    --ph-color-overlay-scrim: rgb(0 0 0 / 0.6);
+
+    --ph-color-text-default: var(--ph-palette-slate-50);
+    --ph-color-text-muted: var(--ph-palette-slate-400);
+    --ph-color-text-subtle: var(--ph-palette-slate-500);
+    --ph-color-text-inverse: var(--ph-palette-slate-900);
+    --ph-color-text-on-accent: #ffffff;
+    --ph-color-text-disabled: var(--ph-palette-slate-600);
+
+    --ph-color-accent: var(--ph-palette-indigo-500);
+    --ph-color-accent-hover: var(--ph-palette-indigo-400);
+    --ph-color-accent-active: var(--ph-palette-indigo-300);
+    --ph-color-accent-subtle: var(--ph-palette-indigo-900);
+    --ph-color-accent-subtle-text: var(--ph-palette-indigo-200);
+
+    --ph-color-border-subtle: var(--ph-palette-slate-700);
+    --ph-color-border-strong: var(--ph-palette-slate-600);
+    --ph-color-border-focus: var(--ph-palette-indigo-400);
+
+    --ph-color-danger: var(--ph-palette-red-500);
+    --ph-color-danger-hover: var(--ph-palette-red-600);
+    --ph-color-danger-active: var(--ph-palette-red-700);
+    --ph-color-danger-subtle: rgb(127 29 29 / 0.35);
+    --ph-color-danger-subtle-text: var(--ph-palette-red-100);
+
+    --ph-color-success: var(--ph-palette-green-500);
+    --ph-color-success-hover: var(--ph-palette-green-600);
+    --ph-color-success-active: var(--ph-palette-green-700);
+    --ph-color-success-subtle: rgb(20 83 45 / 0.35);
+    --ph-color-success-subtle-text: var(--ph-palette-green-100);
+
+    --ph-color-warning: var(--ph-palette-amber-500);
+    --ph-color-warning-hover: var(--ph-palette-amber-600);
+    --ph-color-warning-active: var(--ph-palette-amber-700);
+    --ph-color-warning-subtle: rgb(120 53 15 / 0.35);
+    --ph-color-warning-subtle-text: var(--ph-palette-amber-100);
+
+    --ph-focus-ring: 0 0 0 3px var(--ph-palette-indigo-800);
+  }
+}

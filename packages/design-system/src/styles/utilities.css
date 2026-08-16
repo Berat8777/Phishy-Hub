@@ -1,0 +1,24 @@
+/**
+ * Small utility classes used sparingly, both inside this package's
+ * own components and by consuming apps.
+ */
+
+/* Visually hide content while keeping it available to screen readers. */
+.ph-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Single-line truncation with ellipsis. */
+.ph-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

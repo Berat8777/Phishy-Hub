@@ -1,0 +1,8 @@
+{
+  "name": "phishy-hub",
+  "private": true,
+  "workspaces": [
+    "web",
+    "packages/*"
+  ]
+}

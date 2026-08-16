@@ -22,6 +22,12 @@ export const createChannelValidator = [
   validate,
 ];
 
+export const createDmValidator = [
+  body('userIds').isArray({ min: 1 }),
+  body('userIds.*').isUUID(),
+  validate,
+];
+
 export const addMemberValidator = [
   param('channelId').isUUID(),
   body('userId').isUUID(),

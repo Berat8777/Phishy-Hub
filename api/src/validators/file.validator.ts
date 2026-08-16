@@ -1,8 +1,14 @@
-import { body, param } from 'express-validator';
+import { body, param, query } from 'express-validator';
 import { validate } from '../middleware/validate';
 import { ATTACHABLE_TYPES } from '../utils/constants';
 
 export const fileIdParamValidator = [param('id').isUUID(), validate];
+
+export const getDownloadUrlValidator = [
+  param('id').isUUID(),
+  query('variant').optional().isIn(['original', 'thumbnail']),
+  validate,
+];
 
 export const attachFileValidator = [
   param('id').isUUID(),

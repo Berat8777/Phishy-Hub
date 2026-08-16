@@ -1,0 +1,20 @@
+@import '@phishyhub/design-system/styles.css';
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--ph-color-bg-canvas);
+  color: var(--ph-color-text-default);
+  font-family: var(--ph-font-family-base);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}

@@ -150,11 +150,17 @@ Response `meta`:
 { "page": 1, "pageSize": 20, "total": 42, "totalPages": 3 }
 ```
 
-### 2.2 Cursor/keyset (SADECE mesaj geçmişi)
+### 2.2 Cursor/keyset (mesaj geçmişi + thread yanıtları)
 
-`GET /channels/:channelId/messages?before=<messageId>&limit=<n>` (limit max 100, default 30).
-Sıralama `createdAt DESC, id DESC` (tiebreaker). Response `meta`: `{ "hasMore": boolean }`.
+`GET /channels/:channelId/messages?before=<messageId>&limit=<n>` ve
+`GET /messages/:id/replies?before=<messageId>&limit=<n>` (limit max 100,
+default 30) — **aynı** cursor parametre adları/response şekli, ikincisi
+sadece `replyToMessageId = :id` ile scope'lanmış (bkz §3.6). Sıralama
+`createdAt DESC, id DESC` (tiebreaker). Response `meta`: `{ "hasMore": boolean }`.
 İlk sayfa için `before` parametresini atlayın.
+
+`GET /messages/search` bu kategoriye **girmiyor** — offset pagination
+kullanıyor, bkz §2.1 ve §3.6.
 
 ---
 
@@ -208,8 +214,9 @@ ile hariç tutuluyor).
 
 | Method | Path | Auth/Rol | Not |
 |---|---|---|---|
-| GET | `/channels` | herkes | Sadece **kendi üye olduğu** kanallar; `?type=public\|private\|dm` |
+| GET | `/channels` | herkes | Sadece **kendi üye olduğu** kanallar; `?type=public\|private\|dm`. DTO'da her kanala `unreadCount`, `lastReadMessageId`, `lastMessage` eklendi — bkz aşağı |
 | POST | `/channels` | herkes | `{type, name?, departmentId?, memberIds?}`. `type≠dm` ise `name` zorunlu. Oluşturan otomatik `channelRole:admin` üye olur. Grup DM: `type:'dm'` + 2'den fazla `memberIds` |
+| POST | `/channels/dm` | herkes | `{userIds: [...]}` — **get-or-create**. Çağıran + `userIds` tam olarak aynı üye setine sahip bir DM kanalı zaten varsa onu döner (`200`), yoksa oluşturur (`201`). Bkz aşağı |
 | GET | `/channels/:channelId` | üye | 403 üye değilse |
 | GET | `/channels/:channelId/members` | üye | |
 | POST | `/channels/:channelId/join` | herkes | Sadece `type:'public'` kanallar için — private/dm'e sadece admin ekleyebilir |
@@ -218,19 +225,37 @@ ile hariç tutuluyor).
 | DELETE | `/channels/:channelId/members/:userId` | kanal-admin veya global-admin | |
 | POST | `/channels/:channelId/archive` | kanal-admin veya global-admin | |
 
-**Not**: DM kanal de-duplication (aynı üye setiyle ikinci bir DM açma) **best-effort** —
-`channel.service.ts::findExistingDmChannel()` var ama endpoint'lerden otomatik
-çağrılmıyor; client'lar önce bu helper'ın REST karşılığı yoksa kendi
-tarafında "zaten var mı" kontrolü yapmalı ya da bu fonksiyonun bir REST
-endpoint'e bağlanması Modül 2 ile birlikte değerlendirilmeli. Race condition
-riski kabul edilmiş (mimari doc §7).
+**`GET /channels` DTO ek alanları** (sadece liste endpoint'inde, `GET /channels/:channelId`'de yok):
+- `unreadCount`: o kanalda, çağıranın `lastReadMessageId`'sinden sonra
+  gelen, çağırana ait olmayan, üst-seviye (thread yanıtı olmayan) mesaj
+  sayısı.
+- `lastReadMessageId`: çağıranın o kanaldaki `ChannelMember.lastReadMessageId`'si (`null` olabilir).
+- `lastMessage`: `{id, body, senderId, createdAt}` — kanaldaki en son
+  üst-seviye mesajın önizlemesi, hiç mesaj yoksa `null`.
+
+Bu üç alan, sayfadaki **tüm kanallar için tek bir ek sorgu** ile hesaplanıyor
+(kanal başına değil) — `channel.service.ts::attachChannelListMeta()`, ham SQL
+(`DISTINCT ON` + `channel_members`/`messages` join) kullanıyor çünkü her
+kanalın "okunmamış" eşiği farklı bir `lastReadMessageId`'ye bağlı ve
+`pagination.service.ts::paginate()` bunu ifade edemiyor.
+
+**Not**: DM kanal de-duplication artık `POST /channels/dm` üzerinden
+routed — `channel.service.ts::findExistingDmChannel()` bu endpoint'in
+içinde çağrılıyor. Yine de **race condition riski tam çözülmedi** (mimari
+doc §7'de kabul edilmiş): eşzamanlı iki `POST /channels/dm` çağrısı
+teorik olarak iki ayrı DM kanalı oluşturabilir (unique constraint yok);
+pratikte düşük olasılıklı.
 
 ### 3.6 Messages (kanal alt-kaynağı + doğrudan `/messages/:id`)
 
 | Method | Path | Auth | Not |
 |---|---|---|---|
-| GET | `/channels/:channelId/messages` | üye | Cursor pagination, bkz §2.2 |
+| GET | `/channels/:channelId/messages` | üye | Cursor pagination, bkz §2.2. **Sadece üst-seviye mesajlar** — `replyToMessageId IS NOT NULL` olan thread yanıtları artık bu listede yok, bkz "Threads" altında |
 | POST | `/channels/:channelId/messages` | üye | `{body?, replyToMessageId?, fileIds?}`. `body` boşsa `fileIds` zorunlu. **Socket'e de broadcast eder** (`message:new`) |
+| GET | `/messages/search` | herkes | `?q=<terim>&channelId=<opsiyonel>` + offset pagination (§2.1). Bkz "Search" altında |
+| GET | `/messages/:messageId/replies` | üye | Cursor pagination, bkz §2.2. `replyToMessageId = :messageId` olan mesajlar |
+| PUT | `/messages/:messageId/reactions` | üye | `{emoji}` — bkz "Reactions" altında |
+| DELETE | `/messages/:messageId/reactions` | üye | `{emoji}` (body veya query) — bkz "Reactions" altında |
 | PATCH | `/messages/:messageId` | gönderen veya admin | `{body}` |
 | DELETE | `/messages/:messageId` | gönderen veya admin | Soft delete |
 
@@ -238,12 +263,58 @@ riski kabul edilmiş (mimari doc §7).
 `services/message.service.ts` fonksiyonu üzerinden çağrılır — tekilleştirme
 doğrulandı.
 
+**Mesaj DTO'suna eklenen alanlar** (`toMessageDTO()`, tüm mesaj listeleme/get
+endpoint'lerinde):
+- `reactions`: `[{emoji, count, userIds: [...], reactedByMe: boolean}]` —
+  emoji'ye göre gruplanmış. `reactedByMe`, çağıranın kendi user id'sinin
+  `userIds` içinde olup olmadığına bakar. **Önemli**: bu alan sadece REST
+  list/get çağrılarında (çağıranın kimliği bilindiğinde) doğru hesaplanır.
+  Socket broadcast'leri (`message:new`/`message:updated`) aynı DTO'yu
+  **tüm** `channel:{id}` odasına tek bir payload olarak yayınladığı için
+  (viewer-özel hesaplama yok — bu, gönderen bilgisi gibi diğer DTO
+  alanlarının da zaten viewer-agnostik olduğu bu kod tabanındaki mevcut
+  yayın modeliyle tutarlı), broadcast edilen kopyalarda `reactedByMe` her
+  zaman `false` döner. Client'lar kendi kullanıcı id'lerini `userIds`'e
+  karşı kontrol ederek daha güvenilir sonuç alabilir.
+- `replyCount` / `lastReplyAt`: bu mesaja `replyToMessageId` ile işaret eden
+  mesaj sayısı ve en son yanıtın `createdAt`'i (`null` olabilir).
+
+**Reactions**: `PUT /messages/:messageId/reactions` idempotent — aynı emoji
+zaten varsa no-op (yine `200` + güncel mesaj DTO'su döner). Caller,
+mesajın kanalının üyesi olmalı (aynı `assertChannelMember` kontrolü,
+`createMessage()` ile aynı yetkilendirme). `(messageId, userId, emoji)`
+üzerinde unique constraint var — bir kullanıcı aynı mesaja aynı emoji ile
+sadece bir kez reaksiyon verebilir, farklı emoji'lerle birden fazla
+reaksiyon verebilir. Socket'e `reaction:added`/`reaction:removed` broadcast
+edilir (sadece gerçekten bir satır eklendiğinde/silindiğinde — idempotent
+no-op'ta broadcast yok), bkz §4.3.
+
+**Threads**: `GET /messages/:messageId/replies`, ana kanal timeline'ıyla
+**aynı** cursor pagination mantığını kullanır (`before`/`limit` parametre
+adları, `{hasMore}` response şekli), sadece `channelId` yerine
+`replyToMessageId = :messageId` ile filtrelenmiş. Ana timeline
+(`GET /channels/:channelId/messages`) artık thread yanıtlarını
+**içermiyor** — `replyToMessageId IS NOT NULL` olan mesajlar sadece bu yeni
+endpoint üzerinden erişilebilir. Bu filtre cursor karşılaştırmasının
+çalıştığı WHERE clause'un **parçası** (post-filter değil), yani sayfalama
+matematiği bozulmuyor.
+
+**Search**: `GET /messages/search?q=&channelId=` — Postgres
+`ILIKE '%terim%'` (v1, `tsvector` kolonu yok, kapsam dışı). `channelId`
+verilirse sadece o kanalda (üyelik kontrol edilir), verilmezse çağıranın
+üye olduğu **tüm** kanallarda arar. Offset pagination kullanır
+(`pagination.service.ts::paginate()` — bu, mesajın kendi attribute'ları
+üzerinde filtrelenmiş sıradan bir sorgu olduğu için doğrudan uyuyor, cross-table
+agregasyon gerektiren §3.5'teki `unreadCount` hesaplamasının aksine).
+Thread yanıtları da arama sonuçlarına dahil (ana timeline'dan hariç
+tutulmasıyla karıştırılmamalı — arama farklı bir kullanım senaryosu).
+
 ### 3.7 Files (`/files`) — bkz. §5 için tam akış
 
 | Method | Path | Auth | Not |
 |---|---|---|---|
 | POST | `/files` | herkes | `multipart/form-data`, alan adı **`file`**. Opsiyonel `attachableType`+`attachableId` body alanları ile tek istekte attach de yapılabilir |
-| GET | `/files/:id` | yetkiliyse | `{url, expiresInSeconds, file}` — presigned GET URL |
+| GET | `/files/:id` | yetkiliyse | `{url, expiresInSeconds, file}` — presigned GET URL. `?variant=thumbnail` verilirse (sadece resim dosyaları, 256×256 webp) orijinal yerine thumbnail nesnesine işaret eden presigned URL döner — thumbnail'i olmayan bir dosya için `variant=thumbnail` `400 BAD_REQUEST` döner |
 | POST | `/files/:id/attach` | yetkiliyse | `{attachableType, attachableId}` |
 | DELETE | `/files/:id` | uploader veya admin | MinIO + DB'den siler |
 
@@ -335,6 +406,8 @@ Ack formatı `sockets/ack.ts`'te merkezi: `{success:true,data}` /
 | `typing` | `{channelId, userId, isTyping}` | `channel:{id}`, **gönderen hariç** (`socket.to()`) |
 | `presence:update` | `{userId, status:'online'\|'offline', lastSeenAt}` | **TÜM bağlı client'lara** (`io.emit`) — kanal/organizasyon bazlı filtreleme yok, tasarım kararı: v1'de "kim kimin presence'ını görebilir" kısıtlaması yok |
 | `notification:new` | `{notification}` | `user:{id}` |
+| `reaction:added` | `{messageId, emoji, userId}` | `channel:{id}` |
+| `reaction:removed` | `{messageId, emoji, userId}` | `channel:{id}` |
 
 REST üzerinden mesaj oluşturma/güncelleme/silme de **aynı event'leri**
 socket'e broadcast eder (`sockets/broadcast.ts` merkezi helper'ları
@@ -492,6 +565,25 @@ sırasında alınan kararlardır — mimariyle çelişmiyor ama netleştirme ger
    sonraki modülde eklenebilir.
 6. **`presence:update` tüm bağlı client'lara broadcast ediliyor** (oda-bazlı
    değil) — mimari doc'ta hedef oda belirtilmemişti, en basit seçenek alındı.
+7. **Reactions/Threads/Search/Unread-counts/DM get-or-create/thumbnail URL**
+   (frontend mimari review'inde eksik bulunan 4 özellik + 2 küçük düzeltme)
+   eklendi. Alınan kararlar:
+   - `reactedByMe`, sadece REST list/get çağrılarında doğru — socket
+     broadcast'lerinde her zaman `false` (bkz §3.6, "viewer-özel hesaplama
+     yok" notu).
+   - `unreadCount`/`lastMessage`, sayfa başına tek ham SQL sorgusu ile
+     hesaplanıyor (`channel.service.ts::attachChannelListMeta()`) — hem bu
+     hem de mesaj arama, thread yanıtlarının ana timeline'dan hariç
+     tutulmasıyla tutarlı olacak şekilde `replyToMessageId IS NOT NULL`
+     olan mesajları saymıyor/göstermiyor.
+   - `GET /messages/search` `pagination.service.ts::paginate()`'i olduğu
+     gibi reuse ediyor — mesajın kendi attribute'ları üzerinde filtrelenmiş
+     sıradan bir sorgu olduğu için ayrı bir pagination implementasyonuna
+     gerek kalmadı.
+   - Mention formatı (`<@uuid>` — client-side parse edilecek, frontend'in
+     ayrı bir işi) bu turda **hiç** ele alınmadı; `body` alanı ham metin
+     olarak saklanmaya devam ediyor, sunucu tarafında hiçbir mention
+     parse/notification mantığı eklenmedi.
 
 ---
 
@@ -516,3 +608,9 @@ sırasında alınan kararlardır — mimariyle çelişmiyor ama netleştirme ger
       aldı → `typing:start` diğer client'a ulaştı, gönderene ulaşmadı →
       `message:read` ack alındı → disconnect sonrası ~8sn'de diğer client
       `presence:update{offline}` aldı
+- [x] Reactions/Threads/DM get-or-create eklentileri: `npm test` (vitest,
+      gerçek Postgres'e karşı) yeşil — 7 test dosyası, 64 test, dahil yeni
+      `tests/messageFeatures.test.ts` (reaction toggle idempotency, thread
+      exclusion from main timeline + replies endpoint, DM get-or-create
+      returning the same channel on repeat calls). `tsc --noEmit` ve
+      `npm run build` temiz.

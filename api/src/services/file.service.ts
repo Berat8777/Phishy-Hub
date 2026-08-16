@@ -100,10 +100,19 @@ export async function getDownloadUrl(
   userId: string,
   role: UserRole,
   fileId: string,
+  variant: 'original' | 'thumbnail' = 'original',
 ): Promise<{ url: string; expiresInSeconds: number; file: FileDTO }> {
   const file = await File.findByPk(fileId);
   if (!file) throw new NotFoundError('File not found');
   await assertCanAccessFile(userId, role, file);
+
+  if (variant === 'thumbnail') {
+    if (!file.thumbnailKey) {
+      throw new BadRequestError('This file has no thumbnail');
+    }
+    const thumbnailUrl = await getPresignedDownloadUrl(file.thumbnailKey);
+    return { url: thumbnailUrl, expiresInSeconds: env.signedUrlExpirySeconds, file: toFileDTO(file) };
+  }
 
   const url = await getPresignedDownloadUrl(file.storageKey, file.originalName);
   return { url, expiresInSeconds: env.signedUrlExpirySeconds, file: toFileDTO(file) };

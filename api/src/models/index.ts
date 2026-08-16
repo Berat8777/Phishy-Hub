@@ -6,6 +6,7 @@ import { RefreshToken } from './refreshToken.model';
 import { Channel } from './channel.model';
 import { ChannelMember } from './channelMember.model';
 import { Message } from './message.model';
+import { MessageReaction } from './messageReaction.model';
 import { File } from './file.model';
 import { FileAttachment } from './fileAttachment.model';
 import { LeaveRequest } from './leaveRequest.model';
@@ -60,6 +61,12 @@ Message.belongsTo(User, { foreignKey: 'senderId', as: 'sender' });
 Message.belongsTo(Message, { foreignKey: 'replyToMessageId', as: 'replyToMessage' });
 Message.hasMany(Message, { foreignKey: 'replyToMessageId', as: 'replies' });
 
+// --- Message <-> MessageReaction ---
+Message.hasMany(MessageReaction, { foreignKey: 'messageId', as: 'reactions' });
+MessageReaction.belongsTo(Message, { foreignKey: 'messageId', as: 'message' });
+User.hasMany(MessageReaction, { foreignKey: 'userId', as: 'messageReactions' });
+MessageReaction.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
 // --- File <-> FileAttachment ---
 File.hasMany(FileAttachment, { foreignKey: 'fileId', as: 'attachments' });
 FileAttachment.belongsTo(File, { foreignKey: 'fileId', as: 'file' });
@@ -113,6 +120,7 @@ export {
   Channel,
   ChannelMember,
   Message,
+  MessageReaction,
   File,
   FileAttachment,
   LeaveRequest,

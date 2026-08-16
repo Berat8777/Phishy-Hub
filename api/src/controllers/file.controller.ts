@@ -37,7 +37,8 @@ export async function attach(req: Request, res: Response): Promise<void> {
 }
 
 export async function getDownloadUrl(req: Request, res: Response): Promise<void> {
-  const result = await fileService.getDownloadUrl(req.user!.id, req.user!.role, (req.params.id as string));
+  const variant = req.query.variant === 'thumbnail' ? 'thumbnail' : 'original';
+  const result = await fileService.getDownloadUrl(req.user!.id, req.user!.role, (req.params.id as string), variant);
   sendSuccess(res, result);
 }
 

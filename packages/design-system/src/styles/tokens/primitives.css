@@ -1,0 +1,78 @@
+/**
+ * Tier 1 — primitives.
+ *
+ * Raw scale values only: color ramps, spacing, radii, shadows.
+ * Nothing in this file carries meaning ("this is the danger color") —
+ * that mapping lives in semantic.css. Never reference these variables
+ * directly from a component; go through the tier-2 semantic tokens.
+ */
+:root {
+  /* Slate (neutral) ramp */
+  --ph-palette-slate-50: #f8fafc;
+  --ph-palette-slate-100: #f1f5f9;
+  --ph-palette-slate-200: #e2e8f0;
+  --ph-palette-slate-300: #cbd5e1;
+  --ph-palette-slate-400: #94a3b8;
+  --ph-palette-slate-500: #64748b;
+  --ph-palette-slate-600: #475569;
+  --ph-palette-slate-700: #334155;
+  --ph-palette-slate-800: #1e293b;
+  --ph-palette-slate-900: #0f172a;
+
+  /* Indigo (accent) ramp */
+  --ph-palette-indigo-50: #eef2ff;
+  --ph-palette-indigo-100: #e0e7ff;
+  --ph-palette-indigo-200: #c7d2fe;
+  --ph-palette-indigo-300: #a5b4fc;
+  --ph-palette-indigo-400: #818cf8;
+  --ph-palette-indigo-500: #6366f1;
+  --ph-palette-indigo-600: #4f46e5;
+  --ph-palette-indigo-700: #4338ca;
+  --ph-palette-indigo-800: #3730a3;
+  --ph-palette-indigo-900: #312e81;
+
+  /* Status colors */
+  --ph-palette-red-50: #fef2f2;
+  --ph-palette-red-100: #fee2e2;
+  --ph-palette-red-500: #ef4444;
+  --ph-palette-red-600: #dc2626;
+  --ph-palette-red-700: #b91c1c;
+
+  --ph-palette-green-50: #f0fdf4;
+  --ph-palette-green-100: #dcfce7;
+  --ph-palette-green-500: #22c55e;
+  --ph-palette-green-600: #16a34a;
+  --ph-palette-green-700: #15803d;
+
+  --ph-palette-amber-50: #fffbeb;
+  --ph-palette-amber-100: #fef3c7;
+  --ph-palette-amber-500: #f59e0b;
+  --ph-palette-amber-600: #d97706;
+  --ph-palette-amber-700: #b45309;
+
+  /* Spacing scale */
+  --ph-space-0: 0;
+  --ph-space-1: 4px;
+  --ph-space-2: 8px;
+  --ph-space-3: 12px;
+  --ph-space-4: 16px;
+  --ph-space-5: 24px;
+  --ph-space-6: 32px;
+  --ph-space-8: 48px;
+
+  /* Radii */
+  --ph-radius-sm: 4px;
+  --ph-radius-md: 8px;
+  --ph-radius-lg: 12px;
+  --ph-radius-full: 9999px;
+
+  /* Shadows (light-mode values; dark mode redefines via semantic layer if needed) */
+  --ph-shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.06);
+  --ph-shadow-md: 0 4px 6px -1px rgb(15 23 42 / 0.1), 0 2px 4px -2px rgb(15 23 42 / 0.06);
+  --ph-shadow-lg: 0 10px 15px -3px rgb(15 23 42 / 0.1), 0 4px 6px -4px rgb(15 23 42 / 0.05);
+
+  /* Motion */
+  --ph-duration-fast: 120ms;
+  --ph-duration-base: 200ms;
+  --ph-easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
+}

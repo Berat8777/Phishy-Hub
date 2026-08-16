@@ -33,3 +33,25 @@ export function broadcastMessageRead(
 export function broadcastNotification(io: Server, userId: string, notification: unknown): void {
   io.to(`user:${userId}`).emit('notification:new', { notification });
 }
+
+export function broadcastReactionAdded(
+  io: Server,
+  payload: { channelId: string; messageId: string; emoji: string; userId: string },
+): void {
+  io.to(`channel:${payload.channelId}`).emit('reaction:added', {
+    messageId: payload.messageId,
+    emoji: payload.emoji,
+    userId: payload.userId,
+  });
+}
+
+export function broadcastReactionRemoved(
+  io: Server,
+  payload: { channelId: string; messageId: string; emoji: string; userId: string },
+): void {
+  io.to(`channel:${payload.channelId}`).emit('reaction:removed', {
+    messageId: payload.messageId,
+    emoji: payload.emoji,
+    userId: payload.userId,
+  });
+}

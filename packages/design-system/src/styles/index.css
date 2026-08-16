@@ -1,0 +1,14 @@
+/**
+ * Single entry point for the design system's CSS.
+ *
+ * Consuming apps import this once at their entry point:
+ *   import '@phishyhub/design-system/styles.css'
+ *
+ * Order matters: primitives before semantic (semantic references
+ * primitives), tokens before reset/utilities.
+ */
+@import './tokens/primitives.css';
+@import './tokens/semantic.css';
+@import './tokens/typography.css';
+@import './reset.css';
+@import './utilities.css';

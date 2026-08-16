@@ -1,0 +1,59 @@
+/**
+ * Minimal modern CSS reset — just enough to make components render
+ * consistently across browsers. Not a full normalize; the app shell
+ * (`web/`) owns global page-level concerns (fonts loading, scrollbars).
+ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  line-height: var(--ph-line-height-normal);
+  -webkit-font-smoothing: antialiased;
+  font-family: var(--ph-font-family-base);
+  color: var(--ph-color-text-default);
+  background-color: var(--ph-color-bg-canvas);
+}
+
+img,
+picture,
+svg,
+video {
+  display: block;
+  max-width: 100%;
+}
+
+input,
+button,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+ul[role='list'],
+ol[role='list'] {
+  list-style: none;
+  padding: 0;
+}
+
+a {
+  color: inherit;
+}

@@ -1,0 +1,28 @@
+/**
+ * Typography scale — font sizes, weights, line-heights.
+ * Treated as its own tier-1-adjacent scale (not colors), consumed
+ * directly by components since typography rarely needs theme-swapping.
+ */
+:root {
+  --ph-font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
+    sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  --ph-font-family-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono',
+    monospace;
+
+  --ph-font-size-xs: 0.75rem;
+  --ph-font-size-sm: 0.875rem;
+  --ph-font-size-md: 1rem;
+  --ph-font-size-lg: 1.125rem;
+  --ph-font-size-xl: 1.25rem;
+  --ph-font-size-2xl: 1.5rem;
+  --ph-font-size-3xl: 1.875rem;
+
+  --ph-font-weight-regular: 400;
+  --ph-font-weight-medium: 500;
+  --ph-font-weight-semibold: 600;
+  --ph-font-weight-bold: 700;
+
+  --ph-line-height-tight: 1.25;
+  --ph-line-height-normal: 1.5;
+  --ph-line-height-relaxed: 1.75;
+}

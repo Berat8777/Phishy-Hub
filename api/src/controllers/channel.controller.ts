@@ -8,7 +8,8 @@ export async function list(req: Request, res: Response): Promise<void> {
     ...parsePaginationQuery(req.query),
     type: req.query.type as never,
   });
-  sendSuccess(res, items, 200, meta);
+  const dtos = await channelService.attachChannelListMeta(req.user!.id, items);
+  sendSuccess(res, dtos, 200, meta);
 }
 
 export async function getById(req: Request, res: Response): Promise<void> {
@@ -19,6 +20,11 @@ export async function getById(req: Request, res: Response): Promise<void> {
 export async function create(req: Request, res: Response): Promise<void> {
   const channel = await channelService.createChannel(req.user!.id, req.body);
   sendSuccess(res, channel, 201);
+}
+
+export async function createOrGetDm(req: Request, res: Response): Promise<void> {
+  const { channel, created } = await channelService.getOrCreateDmChannel(req.user!.id, req.body.userIds);
+  sendSuccess(res, channel, created ? 201 : 200);
 }
 
 export async function listMembers(req: Request, res: Response): Promise<void> {

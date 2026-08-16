@@ -4,6 +4,7 @@ import {
   channelIdParamValidator,
   listChannelsValidator,
   createChannelValidator,
+  createDmValidator,
   addMemberValidator,
   removeMemberValidator,
 } from '../validators/channel.validator';
@@ -15,6 +16,9 @@ router.use(authenticate);
 
 router.get('/', listChannelsValidator, channelController.list);
 router.post('/', createChannelValidator, channelController.create);
+// Must be registered before /:channelId so the literal "dm" path segment
+// can never be misread as a channelId param.
+router.post('/dm', createDmValidator, channelController.createOrGetDm);
 router.get('/:channelId', channelIdParamValidator, channelController.getById);
 router.get('/:channelId/members', channelIdParamValidator, channelController.listMembers);
 router.post('/:channelId/join', channelIdParamValidator, channelController.join);

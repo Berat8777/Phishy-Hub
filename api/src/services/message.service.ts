@@ -1,9 +1,18 @@
 import { Op } from 'sequelize';
-import { Message, User, FileAttachment, File } from '../models';
+import { Message, User, FileAttachment, File, MessageReaction, ChannelMember } from '../models';
 import { assertChannelMember, assertMessageEditable } from './authz.service';
 import { BadRequestError, NotFoundError } from '../utils/errors';
 import { logger } from '../utils/logger';
+import { paginate, PaginationParams } from './pagination.service';
+import type { PaginationMeta } from '../utils/response';
 import type { UserRole } from '../utils/constants';
+
+export interface MessageReactionSummary {
+  emoji: string;
+  count: number;
+  userIds: string[];
+  reactedByMe: boolean;
+}
 
 export interface MessageDTO {
   id: string;
@@ -15,6 +24,9 @@ export interface MessageDTO {
   replyToMessageId: string | null;
   editedAt: string | null;
   attachments: { fileId: string; originalName: string; mimeType: string; sizeBytes: number }[];
+  reactions: MessageReactionSummary[];
+  replyCount: number;
+  lastReplyAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -32,7 +44,41 @@ async function loadAttachments(messageId: string) {
   });
 }
 
-export async function toMessageDTO(message: InstanceType<typeof Message>): Promise<MessageDTO> {
+async function loadReactions(messageId: string, viewerUserId?: string): Promise<MessageReactionSummary[]> {
+  const reactions = await MessageReaction.findAll({ where: { messageId } });
+  const byEmoji = new Map<string, string[]>();
+  for (const reaction of reactions) {
+    const existing = byEmoji.get(reaction.emoji);
+    if (existing) existing.push(reaction.userId);
+    else byEmoji.set(reaction.emoji, [reaction.userId]);
+  }
+  return Array.from(byEmoji.entries()).map(([emoji, userIds]) => ({
+    emoji,
+    count: userIds.length,
+    userIds,
+    reactedByMe: viewerUserId ? userIds.includes(viewerUserId) : false,
+  }));
+}
+
+async function loadReplyStats(messageId: string): Promise<{ replyCount: number; lastReplyAt: string | null }> {
+  const [replyCount, lastReplyAtRaw] = await Promise.all([
+    Message.count({ where: { replyToMessageId: messageId } }),
+    Message.max('createdAt', { where: { replyToMessageId: messageId } }) as Promise<Date | string | null>,
+  ]);
+  return { replyCount, lastReplyAt: lastReplyAtRaw ? new Date(lastReplyAtRaw).toISOString() : null };
+}
+
+/**
+ * `viewerUserId` drives `reactions[].reactedByMe` — REST list/get callers
+ * always have the requesting user's id and should pass it. Socket broadcasts
+ * fan the same payload out to an entire `channel:{id}` room (no single
+ * "viewer"), so handlers/message.handler.ts and message.controller.ts's
+ * create/update paths call this without it; `reactedByMe` then defaults to
+ * false for every reaction in that broadcast payload. This is an accepted
+ * simplification consistent with the rest of this codebase's broadcast model
+ * (e.g. sender info is likewise identical for every recipient).
+ */
+export async function toMessageDTO(message: InstanceType<typeof Message>, viewerUserId?: string): Promise<MessageDTO> {
   const json = message.toJSON();
   const senderAssociation = message.sender;
   const sender = senderAssociation
@@ -43,7 +89,11 @@ export async function toMessageDTO(message: InstanceType<typeof Message>): Promi
         avatarFileId: senderAssociation.avatarFileId ?? null,
       }
     : null;
-  const attachments = await loadAttachments(message.id);
+  const [attachments, reactions, replyStats] = await Promise.all([
+    loadAttachments(message.id),
+    loadReactions(message.id, viewerUserId),
+    loadReplyStats(message.id),
+  ]);
   return {
     id: json.id,
     channelId: json.channelId,
@@ -54,6 +104,9 @@ export async function toMessageDTO(message: InstanceType<typeof Message>): Promi
     replyToMessageId: json.replyToMessageId ?? null,
     editedAt: json.editedAt ? new Date(json.editedAt).toISOString() : null,
     attachments,
+    reactions,
+    replyCount: replyStats.replyCount,
+    lastReplyAt: replyStats.lastReplyAt,
     createdAt: new Date(json.createdAt).toISOString(),
     updatedAt: new Date(json.updatedAt).toISOString(),
   };
@@ -103,6 +156,20 @@ export async function createMessage(input: {
   return loaded!;
 }
 
+/**
+ * Builds the `Op.or` keyset-pagination fragment shared by the main channel
+ * timeline and the thread-replies endpoint: `createdAt DESC, id DESC`
+ * tiebreaker, same as CONTRACT.md §2.2.
+ */
+async function buildCursorWhere(before: string | undefined): Promise<Record<string, unknown>> {
+  if (!before) return {};
+  const anchor = await Message.findByPk(before);
+  if (!anchor) throw new BadRequestError('before does not reference an existing message');
+  return {
+    [Op.or]: [{ createdAt: { [Op.lt]: anchor.createdAt } }, { createdAt: anchor.createdAt, id: { [Op.lt]: anchor.id } }],
+  };
+}
+
 export async function listMessages(
   userId: string,
   channelId: string,
@@ -111,18 +178,39 @@ export async function listMessages(
   await assertChannelMember(userId, channelId);
 
   const limit = Math.min(100, Math.max(1, params.limit ?? 30));
-
-  let cursorWhere = {};
-  if (params.before) {
-    const anchor = await Message.findByPk(params.before);
-    if (!anchor) throw new BadRequestError('before does not reference an existing message');
-    cursorWhere = {
-      [Op.or]: [{ createdAt: { [Op.lt]: anchor.createdAt } }, { createdAt: anchor.createdAt, id: { [Op.lt]: anchor.id } }],
-    };
-  }
+  const cursorWhere = await buildCursorWhere(params.before);
 
   const rows = await Message.findAll({
-    where: { channelId, ...cursorWhere },
+    // `replyToMessageId: null` is part of the same WHERE the cursor
+    // comparison runs against (not a post-filter) — thread replies are only
+    // reachable via listReplies() below, keeping the pagination math intact.
+    where: { channelId, replyToMessageId: null, ...cursorWhere },
+    include: [SENDER_INCLUDE],
+    order: [
+      ['createdAt', 'DESC'],
+      ['id', 'DESC'],
+    ],
+    limit: limit + 1,
+  });
+
+  const hasMore = rows.length > limit;
+  return { items: rows.slice(0, limit), hasMore };
+}
+
+export async function listReplies(
+  userId: string,
+  messageId: string,
+  params: { before?: string; limit?: number },
+): Promise<{ items: InstanceType<typeof Message>[]; hasMore: boolean }> {
+  const parent = await Message.findByPk(messageId);
+  if (!parent) throw new NotFoundError('Message not found');
+  await assertChannelMember(userId, parent.channelId);
+
+  const limit = Math.min(100, Math.max(1, params.limit ?? 30));
+  const cursorWhere = await buildCursorWhere(params.before);
+
+  const rows = await Message.findAll({
+    where: { replyToMessageId: messageId, ...cursorWhere },
     include: [SENDER_INCLUDE],
     order: [
       ['createdAt', 'DESC'],
@@ -179,4 +267,90 @@ export async function markRead(
   logger.debug({ userId, channelId, lastReadMessageId }, 'message:read');
 
   return { channelId, userId, lastReadMessageId, readAt: readAt.toISOString() };
+}
+
+/**
+ * Adds `userId`'s reaction to a message — idempotent: reacting with an emoji
+ * already on record for this (message, user) pair is a no-op success rather
+ * than a conflict, per the product spec. Caller must be a member of the
+ * message's channel, same check `createMessage` uses.
+ */
+export async function addReaction(
+  userId: string,
+  messageId: string,
+  emoji: string,
+): Promise<{ message: InstanceType<typeof Message>; created: boolean }> {
+  const message = await Message.findByPk(messageId, { include: [SENDER_INCLUDE] });
+  if (!message) throw new NotFoundError('Message not found');
+  await assertChannelMember(userId, message.channelId);
+
+  const trimmedEmoji = emoji.trim();
+  if (!trimmedEmoji) throw new BadRequestError('emoji is required');
+
+  const [, created] = await MessageReaction.findOrCreate({
+    where: { messageId, userId, emoji: trimmedEmoji },
+    defaults: { messageId, userId, emoji: trimmedEmoji },
+  });
+
+  return { message, created };
+}
+
+/** Removes the caller's own reaction. Idempotent: removing a reaction that isn't there is still a success. */
+export async function removeReaction(
+  userId: string,
+  messageId: string,
+  emoji: string,
+): Promise<{ message: InstanceType<typeof Message>; removed: boolean }> {
+  const message = await Message.findByPk(messageId, { include: [SENDER_INCLUDE] });
+  if (!message) throw new NotFoundError('Message not found');
+  await assertChannelMember(userId, message.channelId);
+
+  const trimmedEmoji = emoji.trim();
+  if (!trimmedEmoji) throw new BadRequestError('emoji is required');
+
+  const destroyed = await MessageReaction.destroy({ where: { messageId, userId, emoji: trimmedEmoji } });
+  return { message, removed: destroyed > 0 };
+}
+
+/**
+ * `GET /messages/search` — Postgres `ILIKE '%term%'` on message body (v1,
+ * no tsvector column — out of scope per the spec). Scoped to channels the
+ * caller belongs to; `channelId` narrows to just that one (membership
+ * re-checked). Reuses pagination.service's offset paginate() since this is
+ * just a filtered query on Message's own attributes, not a cross-table
+ * aggregate — no need for a bespoke pagination path.
+ */
+export async function searchMessages(
+  userId: string,
+  params: PaginationParams & { q: string; channelId?: string },
+): Promise<{ items: InstanceType<typeof Message>[]; meta: PaginationMeta }> {
+  const term = params.q?.trim();
+  if (!term) throw new BadRequestError('q is required');
+
+  let channelIds: string[];
+  if (params.channelId) {
+    await assertChannelMember(userId, params.channelId);
+    channelIds = [params.channelId];
+  } else {
+    const memberships = await ChannelMember.findAll({ where: { userId }, attributes: ['channelId'] });
+    channelIds = memberships.map((m) => m.channelId);
+  }
+
+  if (channelIds.length === 0) {
+    const pageSize = Math.min(100, Math.max(1, Math.floor(params.pageSize ?? 20)));
+    return { items: [], meta: { page: 1, pageSize, total: 0, totalPages: 1 } };
+  }
+
+  return paginate(
+    Message,
+    params,
+    {
+      where: {
+        channelId: { [Op.in]: channelIds },
+        body: { [Op.iLike]: `%${term}%` },
+      },
+      include: [SENDER_INCLUDE],
+    },
+    'createdAt',
+  );
 }
