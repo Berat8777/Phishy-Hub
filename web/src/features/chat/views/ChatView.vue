@@ -7,7 +7,7 @@ import { useSearchStore } from '../../../stores/search';
 import { useChannelLabel } from '../composables/useChannelLabel';
 import MessageList from '../components/message-list/MessageList.vue';
 import MessageComposer from '../components/composer/MessageComposer.vue';
-import ChannelMembersPanel from '../components/shared/ChannelMembersPanel.vue';
+import ChannelInfoPanel from '../components/shared/ChannelInfoPanel.vue';
 import UserAvatar from '../../../components/shared/UserAvatar.vue';
 import PresenceDot from '../../../components/shared/PresenceDot.vue';
 
@@ -64,11 +64,11 @@ watch(
         <PhIcon v-else-if="activeChannel.type !== 'dm'" name="Hash" size="sm" />
         <h1 class="chat-view__title">{{ label }}</h1>
 
-        <PhTooltip v-if="activeChannel.type !== 'dm'" text="Members">
+        <PhTooltip v-if="activeChannel.type !== 'dm'" text="Channel info">
           <button
             type="button"
             class="chat-view__members-btn"
-            aria-label="View channel members"
+            aria-label="View channel info"
             @click="membersPanelOpen = true"
           >
             <PhIcon name="Users" size="sm" />
@@ -79,7 +79,7 @@ watch(
       <MessageList ref="messageListRef" :source="{ kind: 'channel', id: activeChannel.id }" @reply="onReply" />
       <MessageComposer :channel-id="activeChannel.id" receive-global-drops />
 
-      <ChannelMembersPanel v-if="activeChannel.type !== 'dm'" v-model="membersPanelOpen" :channel-id="activeChannel.id" />
+      <ChannelInfoPanel v-if="activeChannel.type !== 'dm'" v-model="membersPanelOpen" :channel-id="activeChannel.id" />
     </template>
 
     <div v-else class="chat-view__body">

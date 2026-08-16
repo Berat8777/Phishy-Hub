@@ -1,6 +1,6 @@
 import { http } from '../http';
 import type { ApiResult } from '../http';
-import type { ChannelDTO, ChannelListItemDTO, ChannelMemberDTO, ChannelType, PaginationMeta } from '../types';
+import type { ChannelAttachmentDTO, ChannelDTO, ChannelListItemDTO, ChannelMemberDTO, ChannelType, PaginationMeta } from '../types';
 
 export function listChannels(params?: {
   type?: ChannelType;
@@ -52,4 +52,13 @@ export function removeMember(channelId: string, userId: string): Promise<void> {
 
 export function archiveChannel(channelId: string): Promise<unknown> {
   return http.post(`/channels/${channelId}/archive`).then((r) => r.data);
+}
+
+export function listAttachments(
+  channelId: string,
+  params: { type: 'image' | 'file'; page?: number; pageSize?: number },
+): Promise<{ items: ChannelAttachmentDTO[]; meta: PaginationMeta }> {
+  return http
+    .get<ChannelAttachmentDTO[]>(`/channels/${channelId}/attachments`, { query: params })
+    .then((r: ApiResult<ChannelAttachmentDTO[]>) => ({ items: r.data, meta: r.meta as PaginationMeta }));
 }

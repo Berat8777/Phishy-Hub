@@ -1,18 +1,23 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import { PhIcon, PhModal, PhSpinner, PhTooltip, useToast } from '@phishyhub/design-system';
 import { useFilesStore } from '../../../../stores/files';
 import { isApiError } from '../../../../api/errors';
 import type { MessageAttachmentDTO } from '../../../../api/types';
 
 /**
- * Fixed-size box (max 320x240, `object-fit: contain`) regardless of
+ * Fixed-size box (default 320x240, `object-fit: contain`) regardless of
  * loading/loaded/failed state — the file DTO carries no width/height, so
  * this is the only way to keep MessageList's scroll position from jumping
  * when an image finishes loading (task brief: "a real constraint, not a
- * nice-to-have").
+ * nice-to-have"). `thumbWidth`/`thumbHeight` let callers outside the message
+ * list (e.g. the channel-info panel's Media grid) reuse this same
+ * thumbnail+zoomable-lightbox widget at a smaller grid-cell size.
  */
-const props = defineProps<{ attachment: MessageAttachmentDTO }>();
+const props = withDefaults(
+  defineProps<{ attachment: MessageAttachmentDTO; thumbWidth?: number; thumbHeight?: number }>(),
+  { thumbWidth: 320, thumbHeight: 240 },
+);
 
 const filesStore = useFilesStore();
 const toast = useToast();
@@ -82,6 +87,86 @@ function openLightbox(): void {
   if (!fullUrl.value) void loadFull();
 }
 
+// --- Wheel zoom + drag panning (Google Photos-style: zoom anchored under the
+// cursor, not center-zoom). `translate`/`scale` are applied to the image in
+// the coordinate frame of `.image-lightbox` itself — see the CSS below,
+// which absolutely-positions the `<img>` to fill that container (rather than
+// letting it size to its own intrinsic dimensions via flexbox centering) so
+// mouse coordinates measured relative to the container map 1:1 onto the
+// image's own untransformed coordinate space. transform-origin is `0 0`.
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 5;
+const zoom = ref(1);
+const panX = ref(0);
+const panY = ref(0);
+const lightboxContainer = ref<HTMLElement | null>(null);
+const isPanning = ref(false);
+let panPointerId: number | null = null;
+let panStartClientX = 0;
+let panStartClientY = 0;
+let panOriginX = 0;
+let panOriginY = 0;
+
+function resetZoom(): void {
+  zoom.value = 1;
+  panX.value = 0;
+  panY.value = 0;
+}
+
+// Reset whenever the lightbox opens/closes, or (in case this instance is
+// ever reused across attachments) the underlying image changes.
+watch(lightboxOpen, resetZoom);
+watch(() => props.attachment.fileId, resetZoom);
+
+function onLightboxWheel(event: WheelEvent): void {
+  const container = lightboxContainer.value;
+  if (!container) return;
+  const rect = container.getBoundingClientRect();
+  const cursorX = event.clientX - rect.left;
+  const cursorY = event.clientY - rect.top;
+
+  // The point in the image's own (unscaled) coordinate space currently under the cursor.
+  const anchorX = (cursorX - panX.value) / zoom.value;
+  const anchorY = (cursorY - panY.value) / zoom.value;
+
+  const zoomFactor = Math.exp(-event.deltaY * 0.0015);
+  const nextZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom.value * zoomFactor));
+
+  panX.value = cursorX - anchorX * nextZoom;
+  panY.value = cursorY - anchorY * nextZoom;
+  zoom.value = nextZoom;
+
+  // Snap fully back to center once zoomed out all the way, rather than
+  // leaving a stray pan offset that would show as a mis-centered image at 1x.
+  if (nextZoom <= MIN_ZOOM) {
+    panX.value = 0;
+    panY.value = 0;
+  }
+}
+
+function onLightboxPointerDown(event: PointerEvent): void {
+  if (zoom.value <= MIN_ZOOM) return;
+  isPanning.value = true;
+  panPointerId = event.pointerId;
+  panStartClientX = event.clientX;
+  panStartClientY = event.clientY;
+  panOriginX = panX.value;
+  panOriginY = panY.value;
+  (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+}
+
+function onLightboxPointerMove(event: PointerEvent): void {
+  if (!isPanning.value || event.pointerId !== panPointerId) return;
+  panX.value = panOriginX + (event.clientX - panStartClientX);
+  panY.value = panOriginY + (event.clientY - panStartClientY);
+}
+
+function onLightboxPointerUp(event: PointerEvent): void {
+  if (event.pointerId !== panPointerId) return;
+  isPanning.value = false;
+  panPointerId = null;
+}
+
 /**
  * Explicit "save this file" affordance, separate from the image click
  * itself (task brief — clicking the image must open a preview, not
@@ -120,7 +205,13 @@ onMounted(loadThumb);
 </script>
 
 <template>
-  <button type="button" class="image-preview" :aria-label="`Open image ${attachment.originalName}`" @click="openLightbox">
+  <button
+    type="button"
+    class="image-preview"
+    :style="{ width: `${thumbWidth}px`, height: `${thumbHeight}px` }"
+    :aria-label="`Open image ${attachment.originalName}`"
+    @click="openLightbox"
+  >
     <PhSpinner v-if="loading" size="sm" />
     <span v-else-if="failed" class="image-preview__failed">Image unavailable</span>
     <img
@@ -134,16 +225,25 @@ onMounted(loadThumb);
   </button>
 
   <PhModal v-model="lightboxOpen" size="lg" :title="attachment.originalName">
-    <div class="image-lightbox">
+    <div ref="lightboxContainer" class="image-lightbox" @wheel.prevent="onLightboxWheel">
       <PhSpinner v-if="fullLoading" size="lg" />
       <span v-else-if="fullFailed" class="image-lightbox__failed">Image unavailable</span>
       <img
         v-else
         class="image-lightbox__img"
+        :class="{ 'image-lightbox__img--zoomed': zoom > 1, 'image-lightbox__img--panning': isPanning }"
+        :style="{ transform: `translate(${panX}px, ${panY}px) scale(${zoom})` }"
         :src="fullUrl"
         :alt="attachment.originalName"
+        draggable="false"
         @error="onFullImageError"
+        @pointerdown="onLightboxPointerDown"
+        @pointermove="onLightboxPointerMove"
+        @pointerup="onLightboxPointerUp"
+        @pointercancel="onLightboxPointerUp"
       />
+
+      <span v-if="!fullLoading && !fullFailed && zoom > 1" class="image-lightbox__zoom-badge">{{ Math.round(zoom * 100) }}%</span>
 
       <PhTooltip text="Download">
         <button
@@ -166,9 +266,7 @@ onMounted(loadThumb);
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 320px;
   max-width: 100%;
-  height: 240px;
   overflow: hidden;
   background-color: var(--ph-color-surface-sunken);
   border: 1px solid var(--ph-color-border-subtle);
@@ -192,15 +290,50 @@ onMounted(loadThumb);
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  height: calc(100vh - 220px);
   min-height: 240px;
+  overflow: hidden;
 }
 
+/*
+ * Absolutely fills `.image-lightbox` (rather than sizing to its own
+ * intrinsic dimensions via flexbox centering) so mouse coordinates measured
+ * relative to the container map 1:1 onto the image's own untransformed
+ * coordinate space — required for `onLightboxWheel`'s cursor-anchored zoom
+ * math. `object-fit: contain` still letterboxes correctly within that box.
+ */
 .image-lightbox__img {
-  display: block;
-  max-width: 100%;
-  max-height: calc(100vh - 220px);
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   border-radius: var(--ph-radius-md);
+  transform-origin: 0 0;
+  touch-action: none;
+  will-change: transform;
+}
+
+.image-lightbox__img--zoomed {
+  cursor: grab;
+}
+
+.image-lightbox__img--panning {
+  cursor: grabbing;
+}
+
+.image-lightbox__zoom-badge {
+  position: absolute;
+  bottom: var(--ph-space-3);
+  left: var(--ph-space-3);
+  padding: var(--ph-space-1) var(--ph-space-2);
+  border-radius: var(--ph-radius-full);
+  font-size: var(--ph-font-size-xs);
+  font-weight: var(--ph-font-weight-medium);
+  color: var(--ph-color-text-on-accent);
+  background-color: var(--ph-color-overlay-scrim);
+  pointer-events: none;
 }
 
 .image-lightbox__failed {

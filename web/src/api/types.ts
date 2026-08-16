@@ -123,6 +123,17 @@ export interface ChannelMemberDTO {
   joinedAt: string;
 }
 
+/** `GET /channels/:channelId/attachments?type=image|file` — powers the channel-info panel's Media/Files tabs. */
+export interface ChannelAttachmentDTO {
+  fileId: string;
+  messageId: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  uploadedBy: { id: string; firstName: string; lastName: string } | null;
+  createdAt: string;
+}
+
 // --- Messages (CONTRACT.md §3.6) ---
 
 export interface MessageReactionSummary {

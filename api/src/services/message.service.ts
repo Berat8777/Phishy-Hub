@@ -7,6 +7,16 @@ import { paginate, PaginationParams } from './pagination.service';
 import type { PaginationMeta } from '../utils/response';
 import type { UserRole } from '../utils/constants';
 
+export interface ChannelAttachmentDTO {
+  fileId: string;
+  messageId: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  uploadedBy: { id: string; firstName: string; lastName: string } | null;
+  createdAt: string;
+}
+
 export interface MessageReactionSummary {
   emoji: string;
   count: number;
@@ -221,6 +231,69 @@ export async function listReplies(
 
   const hasMore = rows.length > limit;
   return { items: rows.slice(0, limit), hasMore };
+}
+
+/**
+ * `GET /channels/:channelId/attachments?type=image|file` — powers the
+ * channel-info panel's Media/Files tabs. Not paginable directly off
+ * `FileAttachment`'s own attributes (the channel relationship only exists
+ * via the polymorphic `attachableId -> Message.channelId` hop, which
+ * `pagination.service.ts::paginate()` can't express as a join condition),
+ * so this first collects the channel's message ids and then paginates
+ * `FileAttachment` scoped to `attachableId IN (those ids)` — same
+ * two-step shape as `buildCursorWhere`'s single-row lookup above, just for
+ * a set instead of one anchor row.
+ */
+export async function listChannelAttachments(
+  userId: string,
+  channelId: string,
+  params: PaginationParams & { type: 'image' | 'file' },
+): Promise<{ items: ChannelAttachmentDTO[]; meta: PaginationMeta }> {
+  await assertChannelMember(userId, channelId);
+
+  const messages = await Message.findAll({ where: { channelId }, attributes: ['id'] });
+  const messageIds = messages.map((m) => m.id);
+
+  if (messageIds.length === 0) {
+    const pageSize = Math.min(100, Math.max(1, Math.floor(params.pageSize ?? 20)));
+    return { items: [], meta: { page: 1, pageSize, total: 0, totalPages: 1 } };
+  }
+
+  const mimeWhere = params.type === 'image' ? { [Op.iLike]: 'image/%' } : { [Op.notILike]: 'image/%' };
+
+  const { items, meta } = await paginate(
+    FileAttachment,
+    params,
+    {
+      where: { attachableType: 'message', attachableId: { [Op.in]: messageIds } },
+      include: [
+        {
+          model: File,
+          as: 'file',
+          required: true,
+          where: { mimeType: mimeWhere },
+          include: [{ model: User, as: 'uploadedBy', attributes: ['id', 'firstName', 'lastName'] }],
+        },
+      ],
+    },
+    'createdAt',
+  );
+
+  const dtos: ChannelAttachmentDTO[] = items.map((attachment) => {
+    const file = attachment.get('file') as InstanceType<typeof File> & { uploadedBy?: InstanceType<typeof User> };
+    const uploadedBy = file.uploadedBy;
+    return {
+      fileId: file.id,
+      messageId: attachment.attachableId,
+      originalName: file.originalName,
+      mimeType: file.mimeType,
+      sizeBytes: Number(file.sizeBytes),
+      uploadedBy: uploadedBy ? { id: uploadedBy.id, firstName: uploadedBy.firstName, lastName: uploadedBy.lastName } : null,
+      createdAt: new Date(attachment.createdAt).toISOString(),
+    };
+  });
+
+  return { items: dtos, meta };
 }
 
 export async function editMessage(

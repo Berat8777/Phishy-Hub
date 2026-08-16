@@ -243,6 +243,7 @@ leave-request onay zincirinin 1. aşamasını çözmek için kullanılıyor (bkz
 | POST | `/channels/:channelId/leave` | üye | |
 | POST | `/channels/:channelId/members` | kanal-admin veya global-admin | body `{userId}` |
 | DELETE | `/channels/:channelId/members/:userId` | kanal-admin veya global-admin | |
+| GET | `/channels/:channelId/attachments` | üye | `?type=image\|file` (zorunlu) + offset pagination (§2.1). Kanaldaki mesajlara `FileAttachment` ile eklenmiş dosyaları döner, `File.mimeType`'a göre filtrelenir (`image/*` vs geri kalanı), en yeni önce. Channel-info panelinin Media/Files sekmeleri için — bkz `message.service.ts::listChannelAttachments` |
 | POST | `/channels/:channelId/archive` | kanal-admin veya global-admin | |
 
 **`GET /channels` DTO ek alanları** (sadece liste endpoint'inde, `GET /channels/:channelId`'de yok):

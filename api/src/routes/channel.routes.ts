@@ -7,6 +7,7 @@ import {
   createDmValidator,
   addMemberValidator,
   removeMemberValidator,
+  listAttachmentsValidator,
 } from '../validators/channel.validator';
 import { authenticate } from '../middleware/authenticate';
 
@@ -25,6 +26,7 @@ router.post('/:channelId/join', channelIdParamValidator, channelController.join)
 router.post('/:channelId/leave', channelIdParamValidator, channelController.leave);
 router.post('/:channelId/members', addMemberValidator, channelController.addMember);
 router.delete('/:channelId/members/:userId', removeMemberValidator, channelController.removeMember);
+router.get('/:channelId/attachments', listAttachmentsValidator, channelController.listAttachments);
 router.post('/:channelId/archive', channelIdParamValidator, channelController.archive);
 
 export default router;

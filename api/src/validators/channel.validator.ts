@@ -35,3 +35,11 @@ export const addMemberValidator = [
 ];
 
 export const removeMemberValidator = [param('channelId').isUUID(), param('userId').isUUID(), validate];
+
+export const listAttachmentsValidator = [
+  param('channelId').isUUID(),
+  query('type').isIn(['image', 'file']),
+  query('page').optional().isInt({ min: 1 }),
+  query('pageSize').optional().isInt({ min: 1, max: 100 }),
+  validate,
+];

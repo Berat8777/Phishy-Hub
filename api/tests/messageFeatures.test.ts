@@ -134,6 +134,73 @@ describe('message reactions / threads / DM get-or-create', () => {
     });
   });
 
+  describe('channel attachments — GET /channels/:channelId/attachments', () => {
+    // Real 1x1 PNG bytes (magic-byte sniffing needs real content — see files.test.ts).
+    const TINY_PNG = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      'base64',
+    );
+
+    it('splits image vs non-image attachments by type, scoped to the channel, newest first', async () => {
+      const imageUpload = await request(app)
+        .post('/api/v1/files')
+        .set('Authorization', bearer(owner.accessToken))
+        .attach('file', TINY_PNG, { filename: 'pic.png', contentType: 'image/png' });
+      const imageFileId = imageUpload.body.data.id;
+
+      const docUpload = await request(app)
+        .post('/api/v1/files')
+        .set('Authorization', bearer(member.accessToken))
+        .attach('file', Buffer.from('a doc'), { filename: 'doc.txt', contentType: 'text/plain' });
+      const docFileId = docUpload.body.data.id;
+
+      await request(app)
+        .post(`/api/v1/channels/${channelId}/messages`)
+        .set('Authorization', bearer(owner.accessToken))
+        .send({ body: 'here is an image', fileIds: [imageFileId] });
+
+      await request(app)
+        .post(`/api/v1/channels/${channelId}/messages`)
+        .set('Authorization', bearer(member.accessToken))
+        .send({ body: 'here is a doc', fileIds: [docFileId] });
+
+      const images = await request(app)
+        .get(`/api/v1/channels/${channelId}/attachments`)
+        .query({ type: 'image' })
+        .set('Authorization', bearer(owner.accessToken));
+      expect(images.status).toBe(200);
+      const imageIds = images.body.data.map((a: { fileId: string }) => a.fileId);
+      expect(imageIds).toContain(imageFileId);
+      expect(imageIds).not.toContain(docFileId);
+      expect(images.body.data[0].uploadedBy).toEqual(expect.objectContaining({ id: owner.userId }));
+
+      const files = await request(app)
+        .get(`/api/v1/channels/${channelId}/attachments`)
+        .query({ type: 'file' })
+        .set('Authorization', bearer(owner.accessToken));
+      expect(files.status).toBe(200);
+      const fileIds = files.body.data.map((a: { fileId: string }) => a.fileId);
+      expect(fileIds).toContain(docFileId);
+      expect(fileIds).not.toContain(imageFileId);
+    });
+
+    it('a non-member cannot list a channel’s attachments (403)', async () => {
+      const outsider = await registerAndLogin(app);
+      const res = await request(app)
+        .get(`/api/v1/channels/${channelId}/attachments`)
+        .query({ type: 'image' })
+        .set('Authorization', bearer(outsider.accessToken));
+      expect(res.status).toBe(403);
+    });
+
+    it('missing/invalid type -> 422 validation error', async () => {
+      const res = await request(app)
+        .get(`/api/v1/channels/${channelId}/attachments`)
+        .set('Authorization', bearer(owner.accessToken));
+      expect(res.status).toBe(422);
+    });
+  });
+
   describe('DM get-or-create idempotency', () => {
     it('POST /channels/dm returns the same channel on repeated calls instead of creating duplicates', async () => {
       const userA = await registerAndLogin(app);

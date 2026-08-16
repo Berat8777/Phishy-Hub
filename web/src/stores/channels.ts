@@ -91,7 +91,7 @@ export const useChannelsStore = defineStore('channels', () => {
    * `assertChannelAdmin` (channel.service.ts::addMember): the actor must be
    * either a global `admin` or hold `channelRole: 'admin'` on this channel
    * themselves. Appends the resulting membership to the cached list so
-   * ChannelMembersPanel.vue reflects it immediately without a refetch.
+   * ChannelInfoPanel.vue reflects it immediately without a refetch.
    */
   async function addMember(channelId: string, userId: string): Promise<ChannelMemberDTO> {
     const membership = await channelsApi.addMember(channelId, userId);
@@ -100,6 +100,20 @@ export const useChannelsStore = defineStore('channels', () => {
       membersByChannel.value.set(channelId, [...list, membership]);
     }
     return membership;
+  }
+
+  /**
+   * `DELETE /channels/:id/members/:userId` — same `assertChannelAdmin`
+   * authorization as `addMember` above. Removes the member from the cached
+   * list immediately so ChannelInfoPanel.vue reflects it without a
+   * refetch.
+   */
+  async function removeMember(channelId: string, userId: string): Promise<void> {
+    await channelsApi.removeMember(channelId, userId);
+    const list = membersByChannel.value.get(channelId);
+    if (list) {
+      membersByChannel.value.set(channelId, list.filter((m) => m.userId !== userId));
+    }
   }
 
   /**
@@ -160,6 +174,7 @@ export const useChannelsStore = defineStore('channels', () => {
     getMembers,
     fetchMembers,
     addMember,
+    removeMember,
     markRead,
     applyIncomingMessagePreview,
     applyReadReceipt,

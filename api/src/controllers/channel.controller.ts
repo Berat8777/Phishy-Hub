@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import * as channelService from '../services/channel.service';
+import * as messageService from '../services/message.service';
 import { parsePaginationQuery } from '../services/pagination.service';
 import { sendSuccess } from '../utils/response';
 
@@ -55,6 +56,14 @@ export async function addMember(req: Request, res: Response): Promise<void> {
 export async function removeMember(req: Request, res: Response): Promise<void> {
   await channelService.removeMember(req.user!.id, req.user!.role, (req.params.channelId as string), (req.params.userId as string));
   sendSuccess(res, { removed: true });
+}
+
+export async function listAttachments(req: Request, res: Response): Promise<void> {
+  const { items, meta } = await messageService.listChannelAttachments(req.user!.id, (req.params.channelId as string), {
+    ...parsePaginationQuery(req.query),
+    type: req.query.type as 'image' | 'file',
+  });
+  sendSuccess(res, items, 200, meta);
 }
 
 export async function archive(req: Request, res: Response): Promise<void> {
