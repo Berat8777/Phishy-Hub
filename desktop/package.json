@@ -1,0 +1,56 @@
+{
+  "name": "phishy-hub-desktop",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Electron desktop shell for Phishy Hub (wraps the existing web/ SPA).",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "npm run build && electron .",
+    "start": "npm run build && electron .",
+    "package": "npm run build && electron-builder"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "electron": "^43.4.0",
+    "electron-builder": "^26.15.3",
+    "typescript": "~6.0.2"
+  },
+  "build": {
+    "appId": "com.phishyhub.desktop",
+    "productName": "Phishy Hub",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../web/dist",
+        "to": "web-dist"
+      },
+      {
+        "from": "assets/icon.png",
+        "to": "icon.png"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.png"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.png"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icon.png"
+    },
+    "asar": true
+  }
+}
