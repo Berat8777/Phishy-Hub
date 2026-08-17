@@ -141,4 +141,8 @@ async function resyncOnReconnect(): Promise<void> {
   // Typing timers from before the disconnect are meaningless — the socket
   // that would have delivered their `typing:stop` is gone.
   typingStore.reset();
+
+  // Any AI query still marked "active" never got its ai:answer:done/error
+  // event while disconnected — reconcile against its real persisted state.
+  void useAiStore().reconcileActiveQueries();
 }

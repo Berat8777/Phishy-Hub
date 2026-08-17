@@ -170,6 +170,46 @@ export const useAiStore = defineStore('ai', () => {
     messageIdByQueryId.delete(payload.queryId);
   }
 
+  /**
+   * Called from eventBridge.ts's `resyncOnReconnect()` — a query left in
+   * `activeQueryIds` when the socket drops (server restart, network blip,
+   * laptop sleep) never gets its `ai:answer:done`/`error` event and is
+   * otherwise stuck showing a spinner forever, even though the backend may
+   * have finished (or failed) it seconds after the disconnect. Re-fetches
+   * each still-active query's real persisted state and reconciles.
+   */
+  async function reconcileActiveQueries(): Promise<void> {
+    const ids = Object.keys(activeQueryIds.value);
+    if (ids.length === 0) return;
+    await Promise.all(
+      ids.map(async (queryId) => {
+        try {
+          const q = await fetchQuery(queryId);
+          if (q.status === 'succeeded') {
+            handleAnswerDone({
+              queryId,
+              answer: q.answer ?? '',
+              citations: q.citations,
+              messageId: messageIdByQueryId.get(queryId),
+            });
+          } else if (q.status === 'failed') {
+            handleAnswerError({
+              queryId,
+              code: q.errorCode ?? 'AI_UPSTREAM_ERROR',
+              message: 'The connection was lost before this answer finished.',
+            });
+          }
+          // Still 'pending'/'streaming' server-side: leave it active — a
+          // socket event or the next reconnect will resolve it.
+        } catch {
+          // Couldn't verify (e.g. offline) — leave it active rather than
+          // guessing; a stuck spinner is a better failure mode than a false
+          // error on a query that actually succeeded.
+        }
+      }),
+    );
+  }
+
   function handleIndexProgress(payload: AiIndexProgressEvent): void {
     indexProgress.value = payload;
     if (status.value?.activeRun && status.value.activeRun.id === payload.runId) {
@@ -211,6 +251,7 @@ export const useAiStore = defineStore('ai', () => {
     triggerReindex,
     fetchHistory,
     fetchQuery,
+    reconcileActiveQueries,
     handleAnswerStart,
     handleAnswerDelta,
     handleAnswerDone,
