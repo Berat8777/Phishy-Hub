@@ -61,6 +61,15 @@ export interface UserDTO {
   createdAt: string;
   updatedAt: string;
   /**
+   * `true` for the single `@ai` bot user row (Phase 6 / Module 7). A normal
+   * user in every other respect — appears in `GET /users` search results, so
+   * the existing mention-autocomplete UI needs zero changes to let someone
+   * type `@ai` and pick it. Client code uses this flag purely for display
+   * (a "BOT" badge next to the sender name in chat) — no permission checks
+   * depend on it.
+   */
+  isBot: boolean;
+  /**
    * Department ids where this user is `Department.managerId` (CONTRACT.md
    * §3.3). Only populated on `POST /auth/register`, `POST /auth/login`, and
    * `GET /auth/me` — every other endpoint returning a UserDTO (e.g.
@@ -161,6 +170,8 @@ export interface MessageSenderDTO {
   firstName: string;
   lastName: string;
   avatarFileId: string | null;
+  /** `true` for the `@ai` bot user (Phase 6 / Module 7) — drives the "BOT" badge in chat. */
+  isBot: boolean;
 }
 
 export interface MessageDTO {
@@ -358,6 +369,88 @@ export interface NotificationDTO {
   isRead: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+// --- AI RAG code assistant (Phase 6 / Module 7 — `/api/v1/ai/*`) ---
+//
+// Hand-written against the fixed contract shapes given to this pass (the
+// backend implementer was building `api/CONTRACT.md`'s AI section in
+// parallel and hadn't landed it yet) — keep in sync with CONTRACT.md §AI
+// once that section exists, same as every other DTO in this file.
+
+/**
+ * A single retrieved source-code chunk backing an AI answer. `documentId`
+ * ties it back to an indexed `ai_documents` row; `referenced` (optional)
+ * flags whether the model's answer actually cited this chunk vs. it just
+ * being part of the retrieval set.
+ */
+export interface AiCitation {
+  documentId: string;
+  path: string;
+  startLine: number;
+  endLine: number;
+  heading: string | null;
+  content: string;
+  score: number;
+  referenced?: boolean;
+}
+
+/** `POST /ai/search` result row — pure retrieval, no `documentId`/streaming involved (distinct shape from AiCitation). */
+export interface AiSearchHit {
+  path: string;
+  startLine: number;
+  endLine: number;
+  heading: string | null;
+  content: string;
+  score: number;
+}
+
+/** Lifecycle of a single `ai_queries` row. Kept permissive (`string & {}`) per this codebase's `ApiErrorCode`/`NotificationType` convention for server-owned enums not fully pinned down in the contract. */
+export type AiQueryStatus = 'pending' | 'streaming' | 'succeeded' | 'failed' | (string & {});
+
+export interface AiQueryDTO {
+  id: string;
+  userId: string;
+  question: string;
+  channelId: string | null;
+  parentQueryId: string | null;
+  status: AiQueryStatus;
+  answer: string | null;
+  citations: AiCitation[];
+  errorCode: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Lifecycle of a single `ai_index_runs` row. Kept permissive for the same reason as `AiQueryStatus`. */
+export type AiIndexRunStatus = 'pending' | 'running' | 'succeeded' | 'failed' | (string & {});
+export type AiIndexRunTrigger = 'script' | 'api' | (string & {});
+
+export interface AiIndexRunDTO {
+  id: string;
+  status: AiIndexRunStatus;
+  trigger: AiIndexRunTrigger;
+  startedById: string | null;
+  isActive: boolean;
+  embeddingProvider: string | null;
+  fileCount: number;
+  chunkCount: number;
+  embeddedChunkCount: number;
+  errorMessage: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** `GET /ai/status`. */
+export interface AiStatusDTO {
+  enabled: boolean;
+  provider: string | null;
+  hasApiKey: boolean;
+  model: string | null;
+  embeddingsEnabled: boolean;
+  activeRun: AiIndexRunDTO | null;
 }
 
 // --- Health ---

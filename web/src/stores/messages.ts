@@ -259,6 +259,7 @@ export const useMessagesStore = defineStore('messages', () => {
             firstName: authStore.user.firstName,
             lastName: authStore.user.lastName,
             avatarFileId: authStore.user.avatarFileId,
+            isBot: authStore.user.isBot,
           }
         : null,
       body: input.body ?? null,

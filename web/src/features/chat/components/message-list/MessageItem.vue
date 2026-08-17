@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { PhIcon, PhSpinner, useToast } from '@phishyhub/design-system';
 import { formatTime } from '../../../../lib/date';
 import { useMessagesStore } from '../../../../stores/messages';
+import { useAiStore } from '../../../../stores/ai';
 import { isApiError } from '../../../../api/errors';
 import MessageBody from './MessageBody.vue';
 import MessageAttachments from './MessageAttachments.vue';
@@ -27,7 +28,24 @@ const props = withDefaults(
 const emit = defineEmits<{ reply: [messageId: string] }>();
 
 const messagesStore = useMessagesStore();
+const aiStore = useAiStore();
 const toast = useToast();
+
+/**
+ * `@ai` bot answer actively streaming into this message (Phase 6 / Module
+ * 7) — `ai:answer:start`/`delta` key `streamingByMessageId` by this exact
+ * message id (eventBridge.ts -> stores/ai.ts), and `ai:answer:done` deletes
+ * the entry so this falls back to the finalized `message.body` again.
+ *
+ * Simplification (noted for review): while streaming, this renders as plain
+ * text with a trailing caret instead of running the buffer through
+ * MessageBody's mention-chip/link parsing — a partial `<@uuid>` token mid-
+ * stream would render as broken/unresolved markup, so plain text avoids
+ * flashing incorrect chips every delta. The final `message.body` (post
+ * `ai:answer:done`) still gets full MessageBody rendering as normal.
+ */
+const isStreaming = computed(() => props.message.id in aiStore.streamingByMessageId);
+const streamingText = computed(() => aiStore.streamingByMessageId[props.message.id] ?? '');
 
 const editing = ref(false);
 const saving = ref(false);
@@ -103,7 +121,8 @@ function describeError(err: unknown): string {
 
     <template v-else>
       <div class="message-item__row">
-        <MessageBody :body="message.body" />
+        <span v-if="isStreaming" class="message-item__streaming">{{ streamingText }}<span class="message-item__caret" aria-hidden="true" /></span>
+        <MessageBody v-else :body="message.body" />
         <span v-if="showTimestamp" class="message-item__time" :title="message.createdAt">{{ formatTime(message.createdAt) }}</span>
         <span v-if="message.editedAt" class="message-item__edited">(edited)</span>
         <PhSpinner v-if="message.status === 'sending'" size="sm" class="message-item__status-icon" />
@@ -176,6 +195,33 @@ function describeError(err: unknown): string {
   align-items: baseline;
   flex-wrap: wrap;
   gap: var(--ph-space-1) var(--ph-space-2);
+}
+
+.message-item__streaming {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--ph-color-text-default);
+}
+
+.message-item__caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background-color: var(--ph-color-accent);
+  animation: ph-message-caret-blink 1s step-end infinite;
+}
+
+@keyframes ph-message-caret-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
 }
 
 .message-item__time {

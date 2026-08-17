@@ -10,6 +10,8 @@ import {
 } from '../sockets/broadcast';
 import { parsePaginationQuery } from '../services/pagination.service';
 import { sendSuccess } from '../utils/response';
+import { logger } from '../utils/logger';
+import { handleMessageForAiMention } from '../services/ai/aiMention.service';
 
 function tryGetIo() {
   try {
@@ -68,6 +70,13 @@ export async function create(req: Request, res: Response): Promise<void> {
   // belongs to (ambiguous the moment the same user has two active clients
   // in the same channel).
   if (io) broadcastNewMessage(io, dto, req.body.tempId);
+
+  // Fire-and-forget: `@ai` mention handling never blocks/affects the
+  // response to the message-sending request itself (see aiMention.service.ts
+  // for why this can't live inside message.service.ts::createMessage).
+  void handleMessageForAiMention(dto, req.user!.role).catch((err) => {
+    logger.warn({ err, messageId: dto.id }, 'ai mention handling failed');
+  });
 
   sendSuccess(res, dto, 201);
 }

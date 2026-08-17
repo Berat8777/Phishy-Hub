@@ -1,6 +1,8 @@
+import type { NextFunction, Request, Response } from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { env } from '../config/env';
 import { sendError } from '../utils/response';
+import { consumeAiRateLimit } from '../services/ai/rateLimit';
 
 /** General limiter applied to the entire /api/v1 surface. */
 export const generalRateLimit = rateLimit({
@@ -12,6 +14,26 @@ export const generalRateLimit = rateLimit({
     sendError(res, 429, 'TOO_MANY_REQUESTS', 'Too many requests, please try again later');
   },
 });
+
+/**
+ * `POST /ai/query` limiter — keyed by authenticated user id (not IP), since
+ * this guards against a single account hammering the (potentially paid)
+ * upstream generation provider, not credential stuffing. Deliberately NOT
+ * an `express-rate-limit` instance: it shares the exact same in-memory
+ * bucket (`services/ai/rateLimit.ts::consumeAiRateLimit`) that the `@ai`
+ * chat-mention path uses (that path bypasses Express middleware entirely,
+ * being triggered from inside message creation) — two independent limiters
+ * with the same numbers would let a user get up to 2x `AI_RATE_LIMIT_MAX`
+ * against the paid upstream provider by mixing both channels.
+ */
+export function aiQueryRateLimit(req: Request, res: Response, next: NextFunction): void {
+  const userId = req.user?.id ?? ipKeyGenerator(req.ip ?? '');
+  if (!consumeAiRateLimit(userId)) {
+    sendError(res, 429, 'TOO_MANY_REQUESTS', 'Too many AI requests, please slow down');
+    return;
+  }
+  next();
+}
 
 /** Strict limiter for /auth/login and /auth/register — brute-force mitigation. */
 export const authRateLimit = rateLimit({

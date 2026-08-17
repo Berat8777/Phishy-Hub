@@ -16,6 +16,7 @@ import AdminSidebarView from '../features/admin/views/AdminSidebarView.vue';
 import AdminOverviewView from '../features/admin/views/AdminOverviewView.vue';
 import AdminUsersView from '../features/admin/views/AdminUsersView.vue';
 import AdminDepartmentsView from '../features/admin/views/AdminDepartmentsView.vue';
+import AiAssistantView from '../features/ai/views/AiAssistantView.vue';
 import { authGuard, roleGuard } from './guards';
 import type { UserRole } from '../api/types';
 
@@ -31,7 +32,7 @@ declare module 'vue-router' {
      * inherit it automatically since vue-router merges `meta` across the
      * whole matched chain.
      */
-    section?: 'chat' | 'hr' | 'boards' | 'admin';
+    section?: 'chat' | 'hr' | 'boards' | 'admin' | 'ai';
     /** Allow-list of roles that may reach this route (roleGuard). Omit/empty = open to any authenticated user. */
     roles?: UserRole[];
   }
@@ -172,6 +173,21 @@ const router = createRouter({
             default: AdminDepartmentsView,
             sidebar: AdminSidebarView,
           },
+        },
+      ],
+    },
+    {
+      path: '/ai',
+      component: AppShell,
+      // Same literal-role-array precedent as `/admin` above (roleGuard reads
+      // `meta.roles` directly) — the canonical predicate still lives in
+      // `lib/permissions.ts::canUseAi`, used by AppShell's rail-item gating.
+      meta: { section: 'ai', roles: ['developer', 'sales', 'admin'] },
+      children: [
+        {
+          path: '',
+          name: 'ai',
+          component: AiAssistantView,
         },
       ],
     },

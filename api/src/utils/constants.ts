@@ -55,3 +55,21 @@ export const LEAVE_REVIEWER_ROLES: UserRole[] = ['hr', 'admin'];
 
 /** Access token lifetime in seconds — kept in sync with JWT_ACCESS_EXPIRES_IN for docs/UI hints. */
 export const ACCESS_TOKEN_HINT_SECONDS = 15 * 60;
+
+// --- AI RAG code assistant (Module 7) ---
+
+/**
+ * Fixed id of the `@ai` bot user — seeded idempotently (see database/seeders),
+ * guarded against login/admin-mutation in auth.service.ts/user.service.ts,
+ * and used as `senderId` for bot-posted chat messages (services/ai/aiMention.service.ts).
+ */
+export const AI_BOT_USER_ID = '00000000-0000-4000-8000-00000000a1a1';
+
+export const AI_INDEX_RUN_STATUSES = ['pending', 'running', 'succeeded', 'failed'] as const;
+export type AiIndexRunStatus = (typeof AI_INDEX_RUN_STATUSES)[number];
+
+export const AI_INDEX_RUN_TRIGGERS = ['script', 'api'] as const;
+export type AiIndexRunTrigger = (typeof AI_INDEX_RUN_TRIGGERS)[number];
+
+export const AI_QUERY_STATUSES = ['pending', 'streaming', 'succeeded', 'failed'] as const;
+export type AiQueryStatus = (typeof AI_QUERY_STATUSES)[number];

@@ -12,6 +12,7 @@
     "db:migrate:undo:all": "sequelize-cli db:migrate:undo:all",
     "db:seed": "sequelize-cli db:seed:all",
     "db:seed:undo": "sequelize-cli db:seed:undo:all",
+    "ai:index": "tsx src/scripts/aiIndex.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -20,6 +21,8 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.117.1",
+    "@huggingface/transformers": "^4.2.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",

@@ -87,6 +87,32 @@ export function canGrantAdminRole(user: UserDTO | null): boolean {
 }
 
 /**
+ * AI RAG code assistant (Phase 6 / Module 7): who gets the `/ai` rail item
+ * and route (`meta.roles`) — developer/sales/admin, per this pass's fixed
+ * scope (not derivable from `authz.service.ts`, since the backend doesn't
+ * expose a dedicated AI role gate in CONTRACT.md; mirrored here so no
+ * `'developer'`/`'sales'`/`'admin'` role-string literal needs to appear
+ * outside this file).
+ */
+export function canUseAi(user: UserDTO | null): boolean {
+  if (!user) return false;
+  return user.role === 'developer' || user.role === 'sales' || user.role === 'admin';
+}
+
+/**
+ * `POST /ai/index` (trigger reindex): admin only, per the fixed contract
+ * shapes given for this pass. NOTE: `/admin` (where the "AI Index" card
+ * lives, AdminOverviewView.vue) is gated `roles: ['admin', 'hr']`
+ * (router/index.ts), not admin-only — so this predicate is needed
+ * separately to hide/disable the Reindex button for `hr` viewers, who can
+ * reach the page but would get a 403 from the server if they clicked it.
+ */
+export function canManageAiIndex(user: UserDTO | null): boolean {
+  if (!user) return false;
+  return user.role === 'admin';
+}
+
+/**
  * Whether `user` may add a member to a channel (`POST /channels/:id/members`,
  * channel.service.ts::addMember -> authz.service.ts::assertChannelAdmin): a
  * global `admin`, OR a user whose OWN membership row in THIS channel has

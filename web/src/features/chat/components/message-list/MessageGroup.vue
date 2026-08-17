@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { PhBadge } from '@phishyhub/design-system';
 import { formatTime } from '../../../../lib/date';
 import UserAvatar from '../../../../components/shared/UserAvatar.vue';
 import UserPopover from '../shared/UserPopover.vue';
@@ -22,6 +23,9 @@ const senderName = computed(() => {
   const sender = props.messages[0]?.sender;
   return sender ? `${sender.firstName} ${sender.lastName}` : 'Unknown user';
 });
+
+/** `@ai` bot user (Phase 6 / Module 7, CONTRACT.md UserDTO.isBot) — shows a small "BOT" badge next to the sender name. */
+const isBotSender = computed(() => props.messages[0]?.sender?.isBot === true);
 </script>
 
 <template>
@@ -34,6 +38,7 @@ const senderName = computed(() => {
     <div class="message-group__content">
       <div class="message-group__header">
         <span class="message-group__name">{{ senderName }}</span>
+        <PhBadge v-if="isBotSender" variant="accent" class="message-group__bot-badge">BOT</PhBadge>
         <span class="message-group__time">{{ formatTime(messages[0].createdAt) }}</span>
       </div>
       <MessageItem

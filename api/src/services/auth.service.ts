@@ -125,7 +125,10 @@ export async function login(
   const user = await User.scope('withPassword').findOne({ where: { email: normalizedEmail } });
 
   // Same error for "no such user" and "wrong password" — don't leak which one it was.
-  if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+  // The `@ai` bot user (Module 7, utils/constants.ts::AI_BOT_USER_ID) has no
+  // real credentials and must never be able to log in — rejected with the
+  // same generic message so its existence isn't distinguishable either.
+  if (!user || user.isBot || !(await bcrypt.compare(password, user.passwordHash))) {
     throw new UnauthorizedError('Invalid email or password');
   }
 

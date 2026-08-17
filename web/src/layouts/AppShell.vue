@@ -6,7 +6,7 @@ import type { IconName } from '@phishyhub/design-system';
 import DropZone from '../features/chat/components/composer/DropZone.vue';
 import { useDropZoneStore } from '../stores/dropzone';
 import { useAuthStore } from '../stores/auth';
-import { canManageDepartments, canManageUsers } from '../lib/permissions';
+import { canManageDepartments, canManageUsers, canUseAi } from '../lib/permissions';
 
 /**
  * Left icon rail. Modeled as a list so a later phase can append more
@@ -44,6 +44,11 @@ const railItems = computed<RailItem[]>(() => {
     { key: 'boards', label: 'Boards', icon: 'Kanban', section: 'boards', routeName: 'boards' },
     { key: 'hr', label: 'Leave', icon: 'CalendarDays', section: 'hr', routeName: 'hr' },
   ];
+  // Hidden entirely (not just disabled) for anyone `roleGuard` (`meta.roles`
+  // on `/ai`) would just bounce back out — same precedent as `admin` below.
+  if (canUseAi(authStore.user)) {
+    items.push({ key: 'ai', label: 'AI Assistant', icon: 'Sparkles', section: 'ai', routeName: 'ai' });
+  }
   if (canManageUsers(authStore.user) || canManageDepartments(authStore.user)) {
     items.push({ key: 'admin', label: 'Admin', icon: 'ShieldCheck', section: 'admin', routeName: 'admin' });
   }

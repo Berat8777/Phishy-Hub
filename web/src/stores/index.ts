@@ -10,6 +10,7 @@ import { useNotificationsStore } from './notifications';
 import { useDraftsStore } from './drafts';
 import { useSearchStore } from './search';
 import { useUserProfileStore } from './userProfile';
+import { useAiStore } from './ai';
 import { useTicketsStore } from '../features/boards/stores/tickets';
 import { useTicketCommentsStore } from '../features/boards/stores/ticketComments';
 import { useLeaveStore } from '../features/hr/stores/leave';
@@ -52,4 +53,9 @@ export function resetAllStores(): void {
   // key, so a stale cache would leak the PREVIOUS user's data until refetch.
   useLeaveStore().reset();
   useAdminStore().reset();
+  // Same cross-user leak risk as tickets/leave above — a streamed answer
+  // buffer or query history left over from the previous session on a shared
+  // device would otherwise briefly show the NEXT user someone else's AI
+  // conversation.
+  useAiStore().reset();
 }

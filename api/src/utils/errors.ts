@@ -65,3 +65,24 @@ export class InternalError extends AppError {
     super(500, 'INTERNAL_ERROR', message, details);
   }
 }
+
+/** AI RAG code assistant (Module 7) — no generation provider is available (no key + stub disabled/not allowed). */
+export class AiUnavailableError extends AppError {
+  constructor(message = 'AI assistant is not available') {
+    super(503, 'AI_UNAVAILABLE', message);
+  }
+}
+
+/** AI RAG code assistant (Module 7) — no active index run exists yet, so retrieval/generation can't run. */
+export class AiNotIndexedError extends AppError {
+  constructor(message = 'No active AI index — run indexing first') {
+    super(409, 'AI_NOT_INDEXED', message);
+  }
+}
+
+/** AI RAG code assistant (Module 7) — the upstream generation provider (Claude) returned an error. */
+export class AiUpstreamError extends AppError {
+  constructor(message = 'AI provider request failed') {
+    super(502, 'AI_UPSTREAM_ERROR', message);
+  }
+}

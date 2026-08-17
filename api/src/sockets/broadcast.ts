@@ -73,3 +73,19 @@ export function broadcastTicketUpdated(io: Server, ticket: unknown): void {
 export function broadcastTicketDeleted(io: Server, ticketId: string): void {
   io.emit('ticket:deleted', { ticketId });
 }
+
+/**
+ * AI RAG code assistant (Module 7) events. Unlike the helpers above, these
+ * are emitted directly by services/ai/aiQuery.service.ts's injected `emit`
+ * callback and services/ai/aiMention.service.ts (both target
+ * `channel:{id}`/`user:{id}` rooms themselves), and by controllers/ai.controller.ts
+ * for `ai:index:progress` — these two wrappers exist mainly for payload-shape
+ * documentation/reuse, not because every caller goes through them.
+ */
+export function broadcastAiIndexProgress(
+  io: Server,
+  userId: string,
+  progress: { runId: string; status: string; filesProcessed: number; totalFiles: number; chunkCount: number },
+): void {
+  io.to(`user:${userId}`).emit('ai:index:progress', progress);
+}

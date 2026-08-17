@@ -3,6 +3,7 @@ import * as messageService from '../../services/message.service';
 import { broadcastMessageRead, broadcastNewMessage } from '../broadcast';
 import { ackError, ackSuccess } from '../ack';
 import { logger } from '../../utils/logger';
+import { handleMessageForAiMention } from '../../services/ai/aiMention.service';
 import type { AppSocket } from '../index';
 
 export function registerMessageHandlers(io: Server, socket: AppSocket): void {
@@ -22,6 +23,11 @@ export function registerMessageHandlers(io: Server, socket: AppSocket): void {
         const dto = await messageService.toMessageDTO(message);
 
         broadcastNewMessage(io, dto, payload.tempId);
+
+        void handleMessageForAiMention(dto, socket.data.user.role).catch((err) => {
+          logger.warn({ err, messageId: dto.id }, 'ai mention handling failed');
+        });
+
         ack?.(ackSuccess(dto));
       } catch (err) {
         logger.warn({ err }, 'message:send failed');

@@ -14,6 +14,7 @@ export class User extends Model<InferAttributes<User>, InferCreationAttributes<U
   declare status: UserStatus;
   declare avatarFileId: string | null;
   declare lastSeenAt: Date | null;
+  declare isBot: CreationOptional<boolean>;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
   declare deletedAt: CreationOptional<Date | null>;
@@ -71,6 +72,11 @@ User.init(
     lastSeenAt: {
       type: DataTypes.DATE,
       allowNull: true,
+    },
+    isBot: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
     },
     createdAt: DataTypes.DATE,
     updatedAt: DataTypes.DATE,

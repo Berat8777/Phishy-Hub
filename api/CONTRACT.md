@@ -47,6 +47,9 @@ Hatalı:
 | `UPLOAD_LIMIT_FILE_SIZE` | 413 | Multer boyut limiti aşıldı |
 | `UPLOAD_*` | 400 | Diğer multer hataları |
 | `INTERNAL_ERROR` | 500 | Beklenmeyen hata |
+| `AI_UNAVAILABLE` | 503 | AI asistanı için hiçbir generation provider kullanılamıyor (Modül 7, bkz §3.12) |
+| `AI_NOT_INDEXED` | 409 | Aktif bir AI index run yok — retrieval/generation çalıştırılamaz |
+| `AI_UPSTREAM_ERROR` | 502 | Claude API çağrısı hata döndü |
 
 ---
 
@@ -469,6 +472,80 @@ Davet edilenlere `meeting_invite` notification + socket `notification:new`.
 
 ---
 
+### 3.12 AI Assistant (Modül 7)
+
+Repo kodu üzerinde RAG (retrieval-augmented generation) tabanlı bir kod
+asistanı — Postgres + pgvector ile lokal semantic + lexical hibrit arama,
+ardından bir generation provider (gerçek Claude API ya da anahtar yokken
+offline bir stub) ile yanıt üretimi. Erişim `AI_ALLOWED_ROLES` env'i ile
+kontrol edilir (varsayılan `developer,sales,admin`) — izin verilmeyen bir
+rol her AI endpoint'inde `403 FORBIDDEN` alır (`services/ai/aiQuery.service.ts::assertCanUseAi`).
+
+| Method | Path | Auth/Rol | Not |
+|---|---|---|---|
+| GET | `/ai/status` | izinli rol | `{enabled, provider, hasApiKey, model, embeddingsEnabled, activeRun}` — `hasApiKey` sadece bir anahtarın **tanımlı olup olmadığını** söyler, anahtarın kendisi asla dönmez |
+| POST | `/ai/query` | izinli rol, rate-limitli (`AI_RATE_LIMIT_MAX`/`AI_RATE_LIMIT_WINDOW_MS`, varsayılan 10/60000ms, `req.user.id` bazlı) | `{question, channelId?, parentQueryId?, stream?}` (`stream` varsayılan `true`). Streaming modda `201 {queryId, status:'streaming', citations}` döner — yanıtın kendisi `ai:answer:*` socket event'leriyle gelir (bkz §4.3). `stream:false` ile tüm üretim tamamlanana kadar bekler, `201 {queryId, answer, citations}` döner |
+| GET | `/ai/queries` | herkes → sadece kendi sorguları, offset pagination (§2.1); `admin` `?userId=` ile başka bir kullanıcının sorgularını görebilir |
+| GET | `/ai/queries/:id` | sahibi veya `admin` |
+| POST | `/ai/search` | izinli rol | `{q, limit?}` → **sadece retrieval**, Claude/stub hiç çağrılmaz → `[{path, startLine, endLine, heading, content, score}]`. Anahtar olmadan da tam çalışır — retrieval'ı izole test etmek için |
+| POST | `/ai/index` | `admin` | `201`, ağır işi (walk/chunk/embed) **awaitlemeden** başlatır (oluşturulan run, `status:'running'` ile hemen döner), arka planda tamamlanır. Zaten bir run çalışıyorsa `409 CONFLICT` |
+| GET | `/ai/index/status` | izinli rol | `{latest, active}` — en son (herhangi bir durumdaki) run ve o an aktif olan run |
+| GET | `/ai/index/runs` | `admin` | offset pagination (§2.1) |
+| GET | `/ai/documents` | `admin` | `?q=` (path üzerinde ILIKE) + offset pagination — **sadece aktif run'ın** dosyalarını listeler |
+
+**Indexing pipeline** (`services/ai/indexing.service.ts`, `npm run ai:index`
+ile veya `POST /ai/index` ile tetiklenir): repo kökünden (`AI_INDEX_ROOT`,
+varsayılan repo kökü) dosyaları tarar (`fileWalker.ts` — uzantı allow-list +
+dizin/dosya deny-list + **sabit kodlanmış, env ile kapatılamayan** bir
+güvenlik kuralı: `.env`/`.env.*` (`.env.example` hariç), `*.pem`, `*.key`,
+`*.p12`, `id_rsa*` **asla** indekslenmez), her dosyayı satır bazlı,
+fonksiyon/class/heading sınırlarını tercih eden pencerelerle parçalara
+böler (`chunker.ts`), yerel bir embedding modeliyle (`@huggingface/transformers`,
+`Xenova/all-MiniLM-L6-v2`, 384 boyut) vektörler üretir. **Model yüklenemezse**
+(bu ortamda oldu — ağdan model ağırlıkları indirilemedi) çalışma **başarısız
+olmaz**, sadece o run'da embedding'ler `NULL` kalır ve retrieval salt lexical
+(Postgres full-text) moda düşer — bkz §12 karar notu. Aynı `path` + aynı
+`content_hash`'e sahip dosyalar için önceki aktif run'ın embedding'leri
+kopyalanır (ucuz re-index). Yeni run başarıyla bitince eskisiyle atomik yer
+değiştirir (`is_active`), sadece son 2 run saklanır (eskiler cascade silinir).
+
+**Retrieval** (`services/ai/retrieval.service.ts`): pgvector kosinüs mesafesi
+(`<=>`) ile vektör arama + Postgres `tsvector`/`websearch_to_tsquery` ile
+lexical arama, **paralel** çalıştırılır, Reciprocal Rank Fusion ile
+birleştirilir, komşu/örtüşen chunk'lar tek blokta birleştirilir, toplam
+içerik `AI_CONTEXT_MAX_CHARS` (varsayılan 24000) karaktere göre bütçelenir
+(en düşük skorlu bloklar önce düşer).
+
+**Generation provider seçimi** (`services/ai/index.ts::getGenerationProvider`):
+`AI_ENABLED` açık VE `ANTHROPIC_API_KEY` doluysa VE `AI_GENERATION_PROVIDER≠'stub'`
+→ gerçek Claude (`@anthropic-ai/sdk`, streaming). Aksi halde, `AI_GENERATION_PROVIDER`
+`'stub'` ise ya da (`'auto'` VE `NODE_ENV≠production`) ise → stub provider
+(alınan context bloklarından deterministik, kelime kelime "streamlenen" bir
+yanıt üretir — gerçek bir model çağrısı yok, ama socket streaming/DB
+persistence/citation-eşleme akışının **tamamı** gerçek koddan geçer). Hiçbiri
+uygun değilse `503 AI_UNAVAILABLE`.
+
+**`@ai` chat mention** (`services/ai/aiMention.service.ts`): bir mesaj
+`<@00000000-0000-4000-8000-00000000a1a1>` içeriyorsa ya da `/^@ai\b/i` ile
+eşleşiyorsa (hem REST `POST /channels/:id/messages` hem `message:send` socket
+event'i tetikler, **fire-and-forget** — mesaj gönderme isteğinin yanıtını
+bloklamaz), bot kullanıcı önce bir "Düşünüyorum..." placeholder mesajı
+yazar (tetikleyici mesaj bir thread yanıtıysa aynı thread'e, değilse
+kanalın kök seviyesine), ardından `answerQuestion()` tamamlanınca placeholder
+**tek bir güncelleme** ile nihai cevaba değiştirilir (token-by-token DB yazımı
+yok — o akış sadece socket event'leri üzerinden). Bot'un kendi mesajları asla
+kendini tetiklemez (loop koruması); izinsiz bir rol dener veya rate limit
+aşılırsa bot bunu **sessizce yutmaz**, kısa bir açıklama mesajı yazar.
+
+**`@ai` bot kullanıcı**: sabit id `00000000-0000-4000-8000-00000000a1a1`
+(`utils/constants.ts::AI_BOT_USER_ID`), `users.is_bot=true`, demo seeder'da
+idempotent upsert edilir ve `#general`'a eklenir. Bu kullanıcı **asla** login
+olamaz (`auth.service.ts` genel "Invalid email or password" hatasıyla
+reddeder) ve admin user-management endpoint'leri (`PATCH`/`DELETE /users/:id`)
+üzerinden **değiştirilemez/silinemez** (`403`).
+
+---
+
 ## 4. Socket.IO sözleşmesi
 
 ### 4.1 Bağlantı
@@ -517,6 +594,11 @@ Ack formatı `sockets/ack.ts`'te merkezi: `{success:true,data}` /
 | `ticket:created` | `{ticket}` (tam ticket DTO'su) | **TÜM bağlı client'lara** (`io.emit`) |
 | `ticket:updated` | `{ticket}` (tam ticket DTO'su) | **TÜM bağlı client'lara** (`io.emit`) |
 | `ticket:deleted` | `{ticketId}` | **TÜM bağlı client'lara** (`io.emit`) |
+| `ai:answer:start` | `{queryId, channelId?, messageId?, citations}` | `POST /ai/query`: `user:{callerId}`. `@ai` mention: `channel:{id}` + `user:{askerId}` |
+| `ai:answer:delta` | `{queryId, delta}` | aynısı |
+| `ai:answer:done` | `{queryId, answer, citations, messageId?}` | aynısı |
+| `ai:answer:error` | `{queryId, code, message}` | aynısı |
+| `ai:index:progress` | `{runId, status, filesProcessed, totalFiles, chunkCount}` | `user:{startedById}` — indexing sırasında periyodik yayınlanır, broadcast hatası run'ı asla başarısız etmez |
 
 REST üzerinden mesaj oluşturma/güncelleme/silme de **aynı event'leri**
 socket'e broadcast eder (`sockets/broadcast.ts` merkezi helper'ları
@@ -634,6 +716,9 @@ Diğer modüllerin bilmesi gereken kritik olanlar:
 | `MINIO_PUBLIC_ENDPOINT` / `MINIO_PUBLIC_PORT` | Demo günü LAN IP'ye göre ayarlanmalı (bkz §5) |
 | `MAX_UPLOAD_SIZE_MB` | Client-side dosya boyutu ön-kontrolü için referans (varsayılan 25MB) |
 | `SIGNED_URL_EXPIRY_SECONDS` | Presigned indirme URL'lerinin ömrü (varsayılan 900sn) |
+| `ANTHROPIC_API_KEY` | Boşsa AI asistanı offline stub provider ile çalışır (Modül 7, bkz §3.12) — hiçbir endpoint bunu bloklamaz |
+| `AI_ALLOWED_ROLES` | AI asistanını kullanabilecek roller, virgülle ayrık (varsayılan `developer,sales,admin`) |
+| `AI_INDEX_ROOT` | İndekslenecek repo kökü (varsayılan: bu repo'nun kökü, otomatik çözülür) |
 
 ---
 
@@ -817,3 +902,95 @@ değerleri asla geri alınamıyor), `20260101001700` (`departments.manager_id`),
 - [x] Seeder gerçek Postgres'e karşı `db:seed:undo:all` + `db:seed:all` ile
       sıfırdan yeniden çalıştırıldı, hatasız tamamlandı (bkz §8 seed verisi
       özeti).
+
+---
+
+## 12. Faz 4 — Modül 7 (AI RAG kod asistanı)
+
+### 12.1 Alınan kararlar
+
+1. **pgvector, lokal embedding, stub provider seçimi**: `docker-compose.yml`
+   `postgres:15-alpine` → `pgvector/pgvector:pg15`'e geçti (aynı PG major,
+   `CREATE EXTENSION vector` sorunsuz çalıştı, mevcut volume'de collation
+   sorunu **çıkmadı**). Embedding'ler `@huggingface/transformers`
+   (`Xenova/all-MiniLM-L6-v2`, 384 boyut) ile **lokalde**, hiçbir dış API
+   çağrısı olmadan üretiliyor — bu, `ANTHROPIC_API_KEY` olmadan da retrieval'ın
+   tam çalışmasını sağlıyor (sadece generation, yani nihai cevap metni,
+   anahtara bağlı — retrieval değil). Generation tarafında gerçek
+   `ANTHROPIC_API_KEY` yokken deterministik bir stub provider devreye giriyor
+   (kelime kelime "streamlenen", retrieval sonuçlarından alıntı yapan bir
+   yanıt) — socket streaming/DB persistence/citation-eşleme akışının tamamı
+   gerçek koddan geçiyor, tek fark üretilen metnin kaynağı.
+2. **`embedding`/`tsv` kolonları Sequelize attribute'u DEĞİL** — Sequelize 6'da
+   vector/tsvector tipi yok; bu iki kolona sadece ham parametreli
+   `sequelize.query` ile erişiliyor (`channel.service.ts::attachChannelListMeta`'nın
+   "Sequelize bunu ifade edemiyor" emsaliyle aynı desen).
+3. **`POST /ai/index`'in "awaitlemeden başlat" davranışı**: `indexing.service.ts`
+   `beginIndexRun()` (409 kontrolü + run satırı oluşturma, hızlı) ve
+   `executeIndexRun()` (asıl walk/chunk/embed işi, uzun) olarak ikiye
+   bölündü — controller sadece ilkini awaitler, ikincisini fire-and-forget
+   başlatır. `npm run ai:index` script'i ikisini art arda awaitleyen
+   `runIndex()` sarmalayıcısını kullanıyor (tek, bloklayan komut istiyor).
+4. **`@ai` mention akışı `message.service.ts::createMessage`'ın İÇİNDEN
+   değil**, `message.controller.ts` + `sockets/handlers/message.handler.ts`'in
+   broadcast'ten HEMEN SONRA çağırdığı ayrı bir `aiMention.service.ts`'ten
+   tetikleniyor — `createMessage()`'ın "sockets'tan bağımsız" kuralı korundu.
+   `aiMention.service.ts` (ve sadece o — `aiQuery.service.ts` değil) doğrudan
+   `getIo()` import ediyor (`ticket.service.ts::safeBroadcast` emsaliyle
+   aynı try/catch deseni), çünkü çağrı noktasının imzası (`messageDTO, role`)
+   `io`'yu parametre olarak geçmiyor.
+5. **RRF (Reciprocal Rank Fusion) + adjacent-chunk merge + char bütçesi**
+   sırasıyla uygulanıyor: önce `score = Σ1/(60+rank)` ile birleştir, top-K'ya
+   in, aynı dokümandan bitişik/örtüşen bloklar tek blokta birleştir, son
+   olarak toplam içerik `AI_CONTEXT_MAX_CHARS`'ı aşarsa en düşük skorlulardan
+   başlayarak düşür.
+
+### 12.2 Doğrulama durumu
+
+- [x] `docker compose up -d` (pgvector image) + `CREATE EXTENSION vector`
+      mevcut `postgres_data` volume'üne karşı **sorunsuz** çalıştı — collation
+      uyarısı/volume wipe gerekmedi.
+- [x] `npx sequelize-cli db:migrate` hem dev DB'ye hem (vitest `globalSetup`
+      üzerinden) sıfır test DB'sine karşı temiz çalıştı (6 yeni migration:
+      pgvector extension, `users.is_bot`, `ai_index_runs`, `ai_documents`,
+      `ai_chunks` (vector + generated tsvector + hnsw/gin index'leri dahil),
+      `ai_queries`).
+- [x] `npx tsc --noEmit` temiz.
+- [x] `npm run ai:index` bu repo'ya karşı gerçekten çalıştı: **436 dosya,
+      1532 chunk**, `status:'succeeded'`. Bu ortamda embedding modeli
+      **yüklenemedi** (huggingface CDN'e ağ erişimi yok, `ConnectTimeoutError`)
+      — beklenen, tasarlanmış davranış: run **başarısız olmadı**, sadece
+      `embeddingProvider:'none'`/`embeddedChunkCount:0` ile lexical-only moda
+      düştü. `POST /ai/index` REST üzerinden ikinci bir çalıştırma da aynı
+      şekilde başarıyla tamamlandı (437 dosya — arada eklenen bir test
+      dosyasını da yakaladı) ve eski run'ı otomatik temizledi (sadece son 2
+      run saklanıyor).
+- [x] `POST /ai/search` (`{q:"leave request approval chain manager"}`)
+      gerçek sonuçlar döndü — `leaveRequest.service.ts`, `leaveApproval.test.ts`
+      dahil — **anahtar olmadan, sadece Postgres full-text ile**.
+- [x] Uçtan uca stub round-trip: kanala `@ai leave request approval manager
+      department` mesajı gönderildi → bot placeholder mesajı ("Düşünüyorum...")
+      yazdı → gerçek socket.io-client ile `ai:answer:start` (citations
+      dolu) → 115× `ai:answer:delta` → `ai:answer:done` event'leri
+      gözlemlendi → placeholder mesajı **tek bir** `PATCH` ile nihai cevaba
+      güncellendi → `ai_queries` satırı `status:'succeeded'`, `answer`,
+      `citations` (`referenced` alanları doğru işaretli) ile kalıcı olarak
+      yazıldı.
+- [x] `POST /ai/query` streaming modda `201`'i **~30ms**'de döndürdü
+      (üretimin tamamını beklemeden — `ai:answer:start` event'i tetiklenir
+      tetiklenmez yanıt veriliyor), `stream:false` modda tam cevabı bekleyip
+      döndürdü.
+- [x] RBAC: `employee` rolü `POST /ai/query`'de `403 FORBIDDEN` aldı;
+      `developer` (admin değil) `POST /ai/index`'te `403` aldı; ikinci
+      eşzamanlı `POST /ai/index` çağrısı `409 CONFLICT` aldı.
+- [x] Güvenlik: yeni `tests/aiFileWalker.test.ts` (3 test, gerçek geçici bir
+      dizine karşı) `.env`/`.env.local`/`*.pem`/`*.key`/`*.p12`/`id_rsa*`'nin
+      **asla** dönmediğini, `node_modules`'a hiç inilmediğini ve normal bir
+      dosyanın hâlâ indekslendiğini kanıtlıyor. Ayrıca gerçek repo indeksinde
+      `api/.env` (gerçekten var olan bir dosya) hiçbir `ai_documents` satırında
+      görünmedi.
+- [x] `npx vitest run` — **10 test dosyası, 87 test** (84 eski + 3 yeni),
+      hepsi yeşil; mevcut hiçbir test regresyona uğramadı.
+- [x] Sunucu `ANTHROPIC_API_KEY` **tanımsızken** temiz açıldı
+      (`GET /health` → ok) ve her AI endpoint'i stub provider ile tam
+      çalıştı — bu modülün merkezi tasarım kısıtı doğrulandı.

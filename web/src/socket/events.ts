@@ -3,7 +3,7 @@
  * separate from connection.ts/emit.ts so both can import just the types
  * without pulling in socket.io-client itself.
  */
-import type { MessageDTO, NotificationDTO, TicketDTO } from '../api/types';
+import type { AiCitation, AiIndexRunStatus, MessageDTO, NotificationDTO, TicketDTO } from '../api/types';
 
 // --- Client -> Server (CONTRACT.md §4.2) ---
 
@@ -112,6 +112,47 @@ export interface TicketDeletedEvent {
   ticketId: string;
 }
 
+/**
+ * AI RAG code assistant (Phase 6 / Module 7) — server-only events, no new
+ * client -> server events. `queryId` ties every event in one answer's
+ * lifecycle together; `messageId` (only present when the query was asked
+ * inside a channel via the `@ai` bot) additionally ties it to the chat
+ * message being streamed into, per CONTRACT-given shapes.
+ */
+export interface AiAnswerStartEvent {
+  queryId: string;
+  channelId?: string;
+  messageId?: string;
+  citations: AiCitation[];
+}
+
+export interface AiAnswerDeltaEvent {
+  queryId: string;
+  /** Text chunk to append to the running answer buffer. */
+  delta: string;
+}
+
+export interface AiAnswerDoneEvent {
+  queryId: string;
+  answer: string;
+  citations: AiCitation[];
+  messageId?: string;
+}
+
+export interface AiAnswerErrorEvent {
+  queryId: string;
+  code: string;
+  message: string;
+}
+
+export interface AiIndexProgressEvent {
+  runId: string;
+  status: AiIndexRunStatus;
+  filesProcessed: number;
+  totalFiles: number;
+  chunkCount: number;
+}
+
 export interface ServerToClientEvents {
   'message:new': (payload: MessageNewEvent) => void;
   'message:updated': (payload: MessageUpdatedEvent) => void;
@@ -125,6 +166,11 @@ export interface ServerToClientEvents {
   'ticket:created': (payload: TicketCreatedEvent) => void;
   'ticket:updated': (payload: TicketUpdatedEvent) => void;
   'ticket:deleted': (payload: TicketDeletedEvent) => void;
+  'ai:answer:start': (payload: AiAnswerStartEvent) => void;
+  'ai:answer:delta': (payload: AiAnswerDeltaEvent) => void;
+  'ai:answer:done': (payload: AiAnswerDoneEvent) => void;
+  'ai:answer:error': (payload: AiAnswerErrorEvent) => void;
+  'ai:index:progress': (payload: AiIndexProgressEvent) => void;
 }
 
 // --- Ack envelope (api/src/sockets/ack.ts — same `code` values as the REST envelope) ---

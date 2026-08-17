@@ -7,6 +7,7 @@ import { usePresenceStore } from '../stores/presence';
 import { useNotificationsStore } from '../stores/notifications';
 import { useAuthStore } from '../stores/auth';
 import { useTicketsStore } from '../features/boards/stores/tickets';
+import { useAiStore } from '../stores/ai';
 
 /**
  * The one place server -> client socket events turn into Pinia store
@@ -95,6 +96,28 @@ export function initEventBridge(): void {
 
   socket.on('ticket:deleted', ({ ticketId }) => {
     useTicketsStore().applyTicketDeleted(ticketId);
+  });
+
+  // AI RAG code assistant (Phase 6 / Module 7) — server-only events, see
+  // socket/events.ts for payload shapes.
+  socket.on('ai:answer:start', (payload) => {
+    useAiStore().handleAnswerStart(payload);
+  });
+
+  socket.on('ai:answer:delta', (payload) => {
+    useAiStore().handleAnswerDelta(payload);
+  });
+
+  socket.on('ai:answer:done', (payload) => {
+    useAiStore().handleAnswerDone(payload);
+  });
+
+  socket.on('ai:answer:error', (payload) => {
+    useAiStore().handleAnswerError(payload);
+  });
+
+  socket.on('ai:index:progress', (payload) => {
+    useAiStore().handleIndexProgress(payload);
   });
 }
 

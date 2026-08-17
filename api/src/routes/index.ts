@@ -10,6 +10,7 @@ import leaveCalendarRoutes from './leaveCalendar.routes';
 import ticketRoutes from './ticket.routes';
 import meetingRoutes from './meeting.routes';
 import notificationRoutes from './notification.routes';
+import aiRoutes from './ai.routes';
 
 const router = Router();
 
@@ -24,5 +25,6 @@ router.use('/leave-calendar', leaveCalendarRoutes);
 router.use('/tickets', ticketRoutes);
 router.use('/meetings', meetingRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/ai', aiRoutes);
 
 export default router;

@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import path from 'path';
 
 /**
  * Reads and validates process.env once at startup. Fails fast (throws
@@ -108,6 +109,32 @@ export const env = {
   signedUrlExpirySeconds: optionalInt('SIGNED_URL_EXPIRY_SECONDS', 900),
 
   logLevel: optional('LOG_LEVEL', 'info'),
+
+  // --- AI RAG code assistant (Module 7) — ALL optional, server boots with none set. ---
+  ai: {
+    anthropicApiKey: optional('ANTHROPIC_API_KEY', ''),
+    anthropicModel: optional('ANTHROPIC_MODEL', 'claude-sonnet-4-5'),
+    anthropicMaxTokens: optionalInt('ANTHROPIC_MAX_TOKENS', 2048),
+    enabled: optionalBool('AI_ENABLED', true),
+    // 'auto' | 'stub' | 'claude' — see services/ai/index.ts for the selection logic.
+    generationProvider: optional('AI_GENERATION_PROVIDER', 'auto'),
+    // Repo root — this file lives at api/src/config/env.ts, so 3 levels up
+    // reaches the repo root (api/src/config -> api/src -> api -> repo root).
+    indexRoot: optional('AI_INDEX_ROOT', path.resolve(__dirname, '../../..')),
+    embeddingsEnabled: optionalBool('AI_EMBEDDINGS_ENABLED', true),
+    embeddingModel: optional('AI_EMBEDDING_MODEL', 'Xenova/all-MiniLM-L6-v2'),
+    retrievalTopK: optionalInt('AI_RETRIEVAL_TOP_K', 8),
+    contextMaxChars: optionalInt('AI_CONTEXT_MAX_CHARS', 24000),
+    chunkMaxLines: optionalInt('AI_CHUNK_MAX_LINES', 40),
+    chunkOverlapLines: optionalInt('AI_CHUNK_OVERLAP_LINES', 10),
+    maxFileBytes: optionalInt('AI_MAX_FILE_BYTES', 262144),
+    allowedRoles: optional('AI_ALLOWED_ROLES', 'developer,sales,admin')
+      .split(',')
+      .map((r) => r.trim())
+      .filter(Boolean),
+    rateLimitMax: optionalInt('AI_RATE_LIMIT_MAX', 10),
+    rateLimitWindowMs: optionalInt('AI_RATE_LIMIT_WINDOW_MS', 60_000),
+  },
 };
 
 export type Env = typeof env;

@@ -17,6 +17,10 @@ import { TicketComment } from './ticketComment.model';
 import { Meeting } from './meeting.model';
 import { MeetingParticipant } from './meetingParticipant.model';
 import { Notification } from './notification.model';
+import { AiIndexRun } from './aiIndexRun.model';
+import { AiDocument } from './aiDocument.model';
+import { AiChunk } from './aiChunk.model';
+import { AiQuery } from './aiQuery.model';
 
 // --- Organization <-> Department / Channel ---
 Organization.hasMany(Department, { foreignKey: 'organizationId', as: 'departments' });
@@ -134,6 +138,29 @@ User.belongsToMany(Meeting, {
 User.hasMany(Notification, { foreignKey: 'userId', as: 'notifications' });
 Notification.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
+// --- AI RAG code assistant (Module 7) ---
+User.hasMany(AiIndexRun, { foreignKey: 'startedById', as: 'startedAiIndexRuns' });
+AiIndexRun.belongsTo(User, { foreignKey: 'startedById', as: 'startedBy' });
+
+AiIndexRun.hasMany(AiDocument, { foreignKey: 'indexRunId', as: 'documents' });
+AiDocument.belongsTo(AiIndexRun, { foreignKey: 'indexRunId', as: 'indexRun' });
+
+AiIndexRun.hasMany(AiChunk, { foreignKey: 'indexRunId', as: 'chunks' });
+AiChunk.belongsTo(AiIndexRun, { foreignKey: 'indexRunId', as: 'indexRun' });
+AiDocument.hasMany(AiChunk, { foreignKey: 'documentId', as: 'chunks' });
+AiChunk.belongsTo(AiDocument, { foreignKey: 'documentId', as: 'document' });
+
+User.hasMany(AiQuery, { foreignKey: 'userId', as: 'aiQueries' });
+AiQuery.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+AiQuery.belongsTo(AiQuery, { foreignKey: 'parentQueryId', as: 'parentQuery' });
+AiQuery.hasMany(AiQuery, { foreignKey: 'parentQueryId', as: 'childQueries' });
+Channel.hasMany(AiQuery, { foreignKey: 'channelId', as: 'aiQueries' });
+AiQuery.belongsTo(Channel, { foreignKey: 'channelId', as: 'channel' });
+Message.hasMany(AiQuery, { foreignKey: 'messageId', as: 'aiQueries' });
+AiQuery.belongsTo(Message, { foreignKey: 'messageId', as: 'message' });
+AiIndexRun.hasMany(AiQuery, { foreignKey: 'indexRunId', as: 'queries' });
+AiQuery.belongsTo(AiIndexRun, { foreignKey: 'indexRunId', as: 'indexRun' });
+
 export {
   sequelize,
   Organization,
@@ -154,4 +181,8 @@ export {
   Meeting,
   MeetingParticipant,
   Notification,
+  AiIndexRun,
+  AiDocument,
+  AiChunk,
+  AiQuery,
 };

@@ -109,6 +109,9 @@ export async function adminUpdateUser(
   }
 
   const user = await getUserById(id);
+  if (user.isBot) {
+    throw new ForbiddenError('The @ai bot user cannot be modified');
+  }
   if (input.departmentId) {
     const department = await Department.findByPk(input.departmentId);
     if (!department) throw new BadRequestError('departmentId does not reference an existing department');
@@ -158,5 +161,8 @@ export async function adminCreateUser(
 
 export async function softDeleteUser(id: string): Promise<void> {
   const user = await getUserById(id);
+  if (user.isBot) {
+    throw new ForbiddenError('The @ai bot user cannot be deleted');
+  }
   await user.destroy();
 }
