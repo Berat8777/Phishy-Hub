@@ -45,8 +45,42 @@ async function runVectorSearch(indexRunId: string, vector: number[]): Promise<Ch
   );
 }
 
+/**
+ * Stopwords for the OR-fallback below (English + Turkish) — dropping these
+ * keeps the fallback query focused on the words most likely to actually be
+ * identifiers/technical terms rather than filler, since an OR query with too
+ * many common words matches almost every chunk and stops being useful.
+ */
+const FALLBACK_STOPWORDS = new Set([
+  'the', 'and', 'for', 'are', 'with', 'this', 'that', 'from', 'what', 'how', 'can', 'does', 'use', 'used', 'using',
+  'which', 'where', 'when', 'why', 'about', 'your', 'you', 'have', 'has',
+  'nasıl', 'nedir', 'neden', 'niçin', 'hangi', 'için', 'bir', 'bu', 'şu', 've', 'veya', 'ile', 'olan', 'olarak',
+  'kullanabilirim', 'yapabilirim', 'burası', 'burada', 'işe', 'yarıyor', 'değil',
+]);
+
+/**
+ * Builds a `token1 | token2 | ...` OR-query for `to_tsquery` from the
+ * question's significant words. Only reached when `websearch_to_tsquery`'s
+ * phrase-style AND-of-terms query finds nothing — a common case for
+ * conversational questions where not every word needs to literally appear
+ * together, only some of them somewhere in the same chunk.
+ */
+function buildFallbackTsQuery(question: string): string | null {
+  const tokens = Array.from(
+    new Set(
+      question
+        .toLowerCase()
+        .normalize('NFKD')
+        .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+        .split(/\s+/)
+        .filter((t) => t.length >= 3 && !FALLBACK_STOPWORDS.has(t)),
+    ),
+  ).slice(0, 8);
+  return tokens.length > 0 ? tokens.join(' | ') : null;
+}
+
 async function runLexicalSearch(indexRunId: string, question: string): Promise<ChunkRow[]> {
-  return sequelize.query<ChunkRow>(
+  const primary = await sequelize.query<ChunkRow>(
     `
     SELECT ac.id, ac.document_id, ad.path, ac.start_line, ac.end_line, ac.heading, ac.content
     FROM ai_chunks ac
@@ -56,6 +90,22 @@ async function runLexicalSearch(indexRunId: string, question: string): Promise<C
     LIMIT 30
     `,
     { replacements: { indexRunId, question }, type: QueryTypes.SELECT },
+  );
+  if (primary.length > 0) return primary;
+
+  const orQuery = buildFallbackTsQuery(question);
+  if (!orQuery) return [];
+
+  return sequelize.query<ChunkRow>(
+    `
+    SELECT ac.id, ac.document_id, ad.path, ac.start_line, ac.end_line, ac.heading, ac.content
+    FROM ai_chunks ac
+    JOIN ai_documents ad ON ad.id = ac.document_id
+    WHERE ac.index_run_id = :indexRunId AND ac.tsv @@ to_tsquery('simple', :orQuery)
+    ORDER BY ts_rank_cd(ac.tsv, to_tsquery('simple', :orQuery)) DESC
+    LIMIT 30
+    `,
+    { replacements: { indexRunId, orQuery }, type: QueryTypes.SELECT },
   );
 }
 
