@@ -7,16 +7,22 @@ import type { AiDocument, AiIndexRun } from '../../models';
 
 /**
  * Provider selection — the central "no ANTHROPIC_API_KEY yet" design
- * constraint (see CONTRACT.md §12 decisions entry). `claude.provider.ts` is
- * only loaded (dynamic import — it imports @anthropic-ai/sdk, no reason to
- * pay that cost when unused) once a key is actually present, so the server
- * boots and every AI endpoint works today via the stub provider with zero
- * configuration, and upgrades to the real provider automatically the moment
- * `ANTHROPIC_API_KEY` is set — no code change, no restart-time branching
- * beyond this function.
+ * constraint (see CONTRACT.md §12 decisions entry). Claude is preferred
+ * when its key is set; Gemini (`GEMINI_API_KEY`) is the alternative real
+ * provider for whichever key the user actually has. Both real providers are
+ * only loaded via dynamic import (they pull their own SDK, no reason to pay
+ * that cost when unused), so the server boots and every AI endpoint works
+ * today via the stub provider with zero configuration, and upgrades
+ * automatically the moment either key is set — no code change, no
+ * restart-time branching beyond this function.
  */
 export async function getGenerationProvider(): Promise<GenerationProvider> {
-  const wantsClaude = env.ai.enabled && Boolean(env.ai.anthropicApiKey) && env.ai.generationProvider !== 'stub';
+  const forced = env.ai.generationProvider;
+  const wantsClaude =
+    env.ai.enabled && Boolean(env.ai.anthropicApiKey) && (forced === 'auto' || forced === 'claude');
+  const wantsGemini =
+    env.ai.enabled && !wantsClaude && Boolean(env.ai.geminiApiKey) && (forced === 'auto' || forced === 'gemini');
+
   if (wantsClaude) {
     // Dynamic `import()` always resolves through Node's ESM loader (even
     // from this CommonJS module), which — unlike `require()` — needs an
@@ -27,8 +33,12 @@ export async function getGenerationProvider(): Promise<GenerationProvider> {
     return claudeProvider;
   }
 
-  const stubAllowed =
-    env.ai.enabled && (env.ai.generationProvider === 'stub' || (env.ai.generationProvider === 'auto' && !env.isProduction));
+  if (wantsGemini) {
+    const { geminiProvider } = await import('./generation/gemini.provider.js');
+    return geminiProvider;
+  }
+
+  const stubAllowed = env.ai.enabled && (forced === 'stub' || (forced === 'auto' && !env.isProduction));
   if (stubAllowed) {
     return stubProvider;
   }
@@ -114,11 +124,13 @@ export async function getAiStatus(): Promise<AiStatus> {
     provider = null;
   }
   const activeRun = await getActiveIndexRun();
+  const model =
+    provider === 'claude' ? env.ai.anthropicModel : provider === 'gemini' ? env.ai.geminiModel : provider === 'stub' ? 'stub' : null;
   return {
     enabled: env.ai.enabled,
     provider,
-    hasApiKey: Boolean(env.ai.anthropicApiKey),
-    model: provider === 'claude' ? env.ai.anthropicModel : provider === 'stub' ? 'stub' : null,
+    hasApiKey: Boolean(env.ai.anthropicApiKey) || Boolean(env.ai.geminiApiKey),
+    model,
     embeddingsEnabled: env.ai.embeddingsEnabled,
     activeRun: activeRun ? toIndexRunDTO(activeRun) : null,
   };

@@ -517,8 +517,12 @@ içerik `AI_CONTEXT_MAX_CHARS` (varsayılan 24000) karaktere göre bütçelenir
 (en düşük skorlu bloklar önce düşer).
 
 **Generation provider seçimi** (`services/ai/index.ts::getGenerationProvider`):
-`AI_ENABLED` açık VE `ANTHROPIC_API_KEY` doluysa VE `AI_GENERATION_PROVIDER≠'stub'`
-→ gerçek Claude (`@anthropic-ai/sdk`, streaming). Aksi halde, `AI_GENERATION_PROVIDER`
+`AI_ENABLED` açık VE `ANTHROPIC_API_KEY` doluysa (VE `AI_GENERATION_PROVIDER` `'auto'`
+ya da `'claude'`) → gerçek Claude (`@anthropic-ai/sdk`, streaming). Aksi halde,
+`GEMINI_API_KEY` doluysa (VE `AI_GENERATION_PROVIDER` `'auto'` ya da `'gemini'`)
+→ gerçek Gemini (`@google/genai`, streaming) — Claude'un alternatifi, aynı
+`GenerationProvider` arayüzü üzerinden, hangi anahtar mevcutsa o kullanılır
+(Claude her ikisi de doluysa öncelikli). Aksi halde, `AI_GENERATION_PROVIDER`
 `'stub'` ise ya da (`'auto'` VE `NODE_ENV≠production`) ise → stub provider
 (alınan context bloklarından deterministik, kelime kelime "streamlenen" bir
 yanıt üretir — gerçek bir model çağrısı yok, ama socket streaming/DB
@@ -716,7 +720,7 @@ Diğer modüllerin bilmesi gereken kritik olanlar:
 | `MINIO_PUBLIC_ENDPOINT` / `MINIO_PUBLIC_PORT` | Demo günü LAN IP'ye göre ayarlanmalı (bkz §5) |
 | `MAX_UPLOAD_SIZE_MB` | Client-side dosya boyutu ön-kontrolü için referans (varsayılan 25MB) |
 | `SIGNED_URL_EXPIRY_SECONDS` | Presigned indirme URL'lerinin ömrü (varsayılan 900sn) |
-| `ANTHROPIC_API_KEY` | Boşsa AI asistanı offline stub provider ile çalışır (Modül 7, bkz §3.12) — hiçbir endpoint bunu bloklamaz |
+| `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` | İkisi de boşsa AI asistanı offline stub provider ile çalışır (Modül 7, bkz §3.12) — hiçbir endpoint bunu bloklamaz. Biri doluysa o sağlayıcı otomatik devreye girer (Claude öncelikli) |
 | `AI_ALLOWED_ROLES` | AI asistanını kullanabilecek roller, virgülle ayrık (varsayılan `developer,sales,admin`) |
 | `AI_INDEX_ROOT` | İndekslenecek repo kökü (varsayılan: bu repo'nun kökü, otomatik çözülür) |
 
@@ -916,11 +920,18 @@ değerleri asla geri alınamıyor), `20260101001700` (`departments.manager_id`),
    (`Xenova/all-MiniLM-L6-v2`, 384 boyut) ile **lokalde**, hiçbir dış API
    çağrısı olmadan üretiliyor — bu, `ANTHROPIC_API_KEY` olmadan da retrieval'ın
    tam çalışmasını sağlıyor (sadece generation, yani nihai cevap metni,
-   anahtara bağlı — retrieval değil). Generation tarafında gerçek
-   `ANTHROPIC_API_KEY` yokken deterministik bir stub provider devreye giriyor
-   (kelime kelime "streamlenen", retrieval sonuçlarından alıntı yapan bir
-   yanıt) — socket streaming/DB persistence/citation-eşleme akışının tamamı
-   gerçek koddan geçiyor, tek fark üretilen metnin kaynağı.
+   anahtara bağlı — retrieval değil). Generation tarafında gerçek anahtar
+   yokken deterministik bir stub provider devreye giriyor (kelime kelime
+   "streamlenen", retrieval sonuçlarından alıntı yapan bir yanıt) — socket
+   streaming/DB persistence/citation-eşleme akışının tamamı gerçek koddan
+   geçiyor, tek fark üretilen metnin kaynağı. **İki gerçek sağlayıcı**
+   desteklenir: Claude (`ANTHROPIC_API_KEY`, `@anthropic-ai/sdk`) ve Gemini
+   (`GEMINI_API_KEY`, `@google/genai`) — `services/ai/generation/`'daki aynı
+   `GenerationProvider` arayüzü arkasında, hangi anahtar tanımlıysa o
+   otomatik seçilir (ikisi de doluysa Claude öncelikli). Bu ikinci sağlayıcı,
+   kullanıcının elinde bir Anthropic anahtarı değil Gemini anahtarı olması
+   üzerine sonradan eklendi — tam da bu yüzden ayrı bir provider dosyası ve
+   seçim mantığı olarak tasarlandı, tek bir sağlayıcıya kilitlenmeden.
 2. **`embedding`/`tsv` kolonları Sequelize attribute'u DEĞİL** — Sequelize 6'da
    vector/tsvector tipi yok; bu iki kolona sadece ham parametreli
    `sequelize.query` ile erişiliyor (`channel.service.ts::attachChannelListMeta`'nın

@@ -22,6 +22,7 @@
   "type": "commonjs",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",
+    "@google/genai": "^2.17.1",
     "@huggingface/transformers": "^4.2.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",

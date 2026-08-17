@@ -115,8 +115,12 @@ export const env = {
     anthropicApiKey: optional('ANTHROPIC_API_KEY', ''),
     anthropicModel: optional('ANTHROPIC_MODEL', 'claude-sonnet-4-5'),
     anthropicMaxTokens: optionalInt('ANTHROPIC_MAX_TOKENS', 2048),
+    // Alternative generation provider — used when no ANTHROPIC_API_KEY is
+    // set but a Gemini key is (see services/ai/index.ts's selection order).
+    geminiApiKey: optional('GEMINI_API_KEY', ''),
+    geminiModel: optional('GEMINI_MODEL', 'gemini-3.6-flash'),
     enabled: optionalBool('AI_ENABLED', true),
-    // 'auto' | 'stub' | 'claude' — see services/ai/index.ts for the selection logic.
+    // 'auto' | 'stub' | 'claude' | 'gemini' — see services/ai/index.ts for the selection logic.
     generationProvider: optional('AI_GENERATION_PROVIDER', 'auto'),
     // Repo root — this file lives at api/src/config/env.ts, so 3 levels up
     // reaches the repo root (api/src/config -> api/src -> api -> repo root).

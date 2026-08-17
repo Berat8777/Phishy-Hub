@@ -115,7 +115,7 @@ export async function answerQuestion(input: {
     for await (const delta of provider.stream({
       system: SYSTEM_PROMPT,
       user: buildUserPrompt(question, blocks),
-      maxTokens: env.ai.anthropicMaxTokens,
+      maxTokens: env.ai.anthropicMaxTokens, // shared budget across providers — Gemini's SDK accepts the same maxOutputTokens shape
     })) {
       answer += delta;
       input.emit({ event: 'ai:answer:delta', payload: { queryId: query.id, delta } });
@@ -134,7 +134,7 @@ export async function answerQuestion(input: {
       status: 'succeeded',
       answer,
       citations: finalCitations,
-      model: provider.name === 'claude' ? env.ai.anthropicModel : null,
+      model: provider.name === 'claude' ? env.ai.anthropicModel : provider.name === 'gemini' ? env.ai.geminiModel : null,
       latencyMs,
     });
 
